@@ -1,12 +1,23 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart } from "lucide-react";
+import { Heart, LogOut } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { toast } from "sonner";
 
 const LandingNav = () => {
-  const { user } = useSupabaseAuth();
+  const { user, signOut } = useSupabaseAuth();
   const initials = user?.user_metadata?.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || user?.email?.[0]?.toUpperCase() || "U";
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success("Logged out successfully");
+    } catch (error) {
+      toast.error("Error logging out");
+      console.error("Logout error:", error);
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
@@ -48,6 +59,15 @@ const LandingNav = () => {
                     {initials}
                   </AvatarFallback>
                 </Avatar>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleLogout}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Log out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
               </div>
             </>
           ) : (

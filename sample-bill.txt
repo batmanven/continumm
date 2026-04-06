@@ -1,0 +1,44 @@
+APOLLO HOSPITALS
+Bill No: 2024-03851
+Date: 15/03/2024
+Patient: John Doe
+Age: 35
+Gender: Male
+
+CONSULTATION CHARGES
+General Consultation - Dr. Sharma              1500.00
+Follow-up Visit - Dr. Sharma                    800.00
+
+LABORATORY TESTS
+Complete Blood Count (CBC)                     450.00
+Lipid Profile                                  380.00
+Liver Function Test                            520.00
+Kidney Function Test                           480.00
+
+RADIOLOGY
+X-Ray Chest PA View                            650.00
+ECG                                            750.00
+
+MEDICINES
+Paracetamol 500mg - 10 tablets                 120.00
+Amoxicillin 500mg - 20 capsules               350.00
+Vitamin D3 - 30 capsules                       280.00
+
+ROOM CHARGES
+Day Care (6 hours)                             1200.00
+
+SUBTOTAL:                                       6460.00
+DISCOUNT:                                       (646.00)
+NET AMOUNT:                                    5814.00
+GST (18%):                                      1046.52
+TOTAL AMOUNT:                                  6860.52
+
+Payment Method: Cash
+Paid By: Self
+
+Doctor: Dr. R. Sharma
+Registration No: REG2024003851
+Department: Internal Medicine
+
+This is a computer generated bill and does not require signature.
+For any queries contact billing department at ext: 2345

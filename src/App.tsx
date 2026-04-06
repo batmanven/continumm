@@ -10,6 +10,7 @@ import Signup from "./pages/sign-up";
 import AppLayout from "./components/app/AppLayout";
 import NotFound from "./pages/not-found";
 import Dashboard from "./pages/app/dashboard";
+import PreviousBills from "./pages/app/previous-bills";
 import SettingsPage from "./pages/app/settings";
 import HealthMemory from "./pages/app/health-memory";
 import BillExplainer from "./pages/app/bill-explainer";
@@ -32,6 +33,7 @@ const App = () => (
               <Route index element={<Dashboard />} />
               <Route path="health-memory" element={<HealthMemory />} />
               <Route path="bill-explainer" element={<BillExplainer />} />
+              <Route path="previous-bills" element={<PreviousBills />} />
               <Route path="insights" element={<Insights />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>

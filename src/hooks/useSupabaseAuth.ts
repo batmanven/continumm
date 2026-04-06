@@ -50,6 +50,15 @@ export function useSupabaseAuth() {
     return { error }
   }
 
+  const updateProfile = async (name: string) => {
+    const { data, error } = await supabase.auth.updateUser({
+      data: {
+        name,
+      },
+    })
+    return { data, error }
+  }
+
   return {
     user,
     session,
@@ -57,5 +66,6 @@ export function useSupabaseAuth() {
     signUp,
     signIn,
     signOut,
+    updateProfile,
   }
 }
