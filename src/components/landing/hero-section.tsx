@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight, BarChart3, LayoutDashboard } from "lucide-react";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 
 const HeroSection = () => {
+  const { user } = useSupabaseAuth();
+
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center bg-mesh overflow-hidden">
       <div className="absolute top-20 left-10 w-72 h-72 rounded-full bg-primary/5 blur-3xl" />
@@ -35,12 +38,19 @@ const HeroSection = () => {
           className="flex items-center justify-center gap-4 opacity-0 animate-fade-in"
           style={{ animationDelay: "300ms" }}
         >
-          <Button variant="hero" size="lg" asChild>
-            <Link to="/signup" className="gap-2">
-              Get Started <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-         
+          {user ? (
+            <Button variant="hero" size="lg" asChild>
+              <Link to="/app" className="gap-2">
+                Go to Dashboard
+              </Link>
+            </Button>
+          ) : (
+            <Button variant="hero" size="lg" asChild>
+              <Link to="/signup" className="gap-2">
+                Get Started <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          )}
         </div>
 
         <div
