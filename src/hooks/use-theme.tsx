@@ -5,14 +5,14 @@ interface ThemeContextType {
   toggle: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({ theme: "light", toggle: () => {} });
+const ThemeContext = createContext<ThemeContextType>({ theme: "dark", toggle: () => {} });
 
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     const saved = localStorage.getItem("continuum_theme");
-    return (saved as "light" | "dark") || "light";
+    return (saved as "light" | "dark") || "dark";
   });
 
   useEffect(() => {
