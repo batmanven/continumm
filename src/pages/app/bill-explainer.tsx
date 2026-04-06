@@ -32,7 +32,6 @@ const BillExplainer = () => {
   
   const { processBill, isProcessing, isExtractingText, result, error, clearResult, processingStage } = useBillProcessor();
 
-  // Check if we're viewing a previous bill
   useEffect(() => {
     if (location.state?.billData && location.state?.isViewMode) {
       const billData = location.state.billData;
@@ -51,7 +50,6 @@ const BillExplainer = () => {
           setBillText(text);
         });
       } else {
-        // For images, clear text and let OCR handle it
         setBillText("");
       }
     }
@@ -62,13 +60,11 @@ const BillExplainer = () => {
     const file = event.dataTransfer.files[0];
     if (file) {
       setSelectedFile(file);
-      // Only auto-read text files, let OCR handle images
       if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
         file.text().then(text => {
           setBillText(text);
         });
       } else {
-        // For images, clear text and let OCR handle it
         setBillText("");
       }
     }
@@ -91,7 +87,6 @@ const BillExplainer = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-    // Navigate to clean state
     navigate(location.pathname, { replace: true, state: null });
   };
 

@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Brain,
   FileText,
-  TrendingUp,
   Settings,
   Heart,
   History,
@@ -26,7 +25,6 @@ const items = [
   { title: "Health Memory", url: "/app/health-memory", icon: Brain },
   { title: "Bill Explainer", url: "/app/bill-explainer", icon: FileText },
   { title: "Previous Bills", url: "/app/previous-bills", icon: History },
-  { title: "Insights", url: "/app/insights", icon: TrendingUp },
   { title: "Settings", url: "/app/settings", icon: Settings },
 ];
 

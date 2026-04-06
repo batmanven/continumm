@@ -14,7 +14,6 @@ import PreviousBills from "./pages/app/previous-bills";
 import SettingsPage from "./pages/app/settings";
 import HealthMemory from "./pages/app/health-memory";
 import BillExplainer from "./pages/app/bill-explainer";
-import Insights from "./pages/app/insights";
 import { Toaster } from "sonner";
 
 const queryClient = new QueryClient();
@@ -34,7 +33,6 @@ const App = () => (
               <Route path="health-memory" element={<HealthMemory />} />
               <Route path="bill-explainer" element={<BillExplainer />} />
               <Route path="previous-bills" element={<PreviousBills />} />
-              <Route path="insights" element={<Insights />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
