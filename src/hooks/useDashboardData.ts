@@ -56,7 +56,7 @@ export const useDashboardData = () => {
     setError(null);
     
     try {
-      // Parallel data fetching
+      
       const [
         healthEntriesResult,
         billsResult,
@@ -67,7 +67,7 @@ export const useDashboardData = () => {
         doctorSummaryService.getUserDoctorSummaries(user.id, 10, 0)
       ]);
 
-      // Extract data with error handling
+      
       const healthEntries = healthEntriesResult.status === 'fulfilled' && healthEntriesResult.value.data 
         ? healthEntriesResult.value.data 
         : [];
@@ -80,16 +80,16 @@ export const useDashboardData = () => {
         ? summariesResult.value.data 
         : [];
 
-      // Process health stats
+      
       const healthStats = processHealthStats(healthEntries);
       
-      // Process financial stats
+      
       const financialStats = processFinancialStats(bills);
       
-      // Process insights stats
+      
       const insightsStats = processInsightsStats(summaries);
       
-      // Process recent activity
+      
       const recentActivity = processRecentActivity(healthEntries, bills, summaries);
 
       setData({
@@ -113,7 +113,7 @@ export const useDashboardData = () => {
       new Date(entry.created_at!) > weekAgo
     );
 
-    // Extract recent symptoms
+    
     const recentSymptoms: string[] = [];
     entries.forEach(entry => {
       if (entry.structured_data?.symptoms) {
@@ -125,11 +125,11 @@ export const useDashboardData = () => {
       }
     });
 
-    // Calculate mood trend
+    
     const moodEntries = entries.filter(entry => entry.structured_data?.mood);
     const moodTrend = calculateMoodTrend(moodEntries);
 
-    // Calculate sleep stats
+    
     const sleepEntries = entries.filter(entry => entry.structured_data?.sleep);
     const avgSleepHours = sleepEntries.length > 0 
       ? sleepEntries.reduce((sum, entry) => sum + (entry.structured_data?.sleep?.hours || 0), 0) / sleepEntries.length
@@ -161,7 +161,7 @@ export const useDashboardData = () => {
       return sum + amount;
     }, 0);
 
-    // Calculate this month's expenses
+    
     const now = new Date();
     const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const thisMonthBills = bills.filter(bill => 
@@ -173,10 +173,10 @@ export const useDashboardData = () => {
       return sum + amount;
     }, 0);
 
-    // Get recent bills
+    
     const recentBills = bills.slice(0, 5);
 
-    // Calculate top categories
+    
     const categoryTotals: { [key: string]: number } = {};
     bills.forEach(bill => {
       const lineItems = bill.structured_data?.lineItems || [];
@@ -209,7 +209,7 @@ export const useDashboardData = () => {
     const latestSummary = summaries[0];
     const recentSummaries = summaries.slice(0, 3);
 
-    // Extract top insights
+    
     const topInsights: string[] = [];
     summaries.forEach(summary => {
       summary.insights.forEach(insight => {
@@ -235,7 +235,7 @@ export const useDashboardData = () => {
   ) => {
     const activities: any[] = [];
 
-    // Add health entries
+    
     healthEntries.slice(0, 10).forEach(entry => {
       activities.push({
         id: entry.id!,
@@ -250,7 +250,7 @@ export const useDashboardData = () => {
       });
     });
 
-    // Add bills
+    
     bills.slice(0, 10).forEach(bill => {
       const amount = bill.structured_data?.totalAmount || 0;
       activities.push({
@@ -264,7 +264,7 @@ export const useDashboardData = () => {
       });
     });
 
-    // Add summaries
+    
     summaries.slice(0, 10).forEach(summary => {
       activities.push({
         id: summary.id!,
@@ -279,7 +279,7 @@ export const useDashboardData = () => {
       });
     });
 
-    // Sort by timestamp (most recent first)
+    
     return activities
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, 10);

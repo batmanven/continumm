@@ -16,7 +16,7 @@ const SettingsPage = () => {
   const [email, setEmail] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Update form fields when user data changes
+  
   useEffect(() => {
     console.log("User data in settings:", user);
     if (user) {

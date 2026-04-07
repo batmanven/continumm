@@ -26,7 +26,7 @@ export const useHealthMemory = (): UseHealthMemoryReturn => {
   const [summary, setSummary] = useState<any>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
 
-  // Load entries on mount and when user changes
+  
   useEffect(() => {
     if (user) {
       refreshEntries();
@@ -66,7 +66,7 @@ export const useHealthMemory = (): UseHealthMemoryReturn => {
     setIsProcessing(true);
     
     try {
-      // Step 1: Create the health entry
+      
       const { data: entry, error: createError } = await healthService.createHealthEntry(
         user.id,
         content,
@@ -79,20 +79,20 @@ export const useHealthMemory = (): UseHealthMemoryReturn => {
         return;
       }
 
-      // Step 2: Process with AI
+      
       toast.loading('Analyzing your health entry...', { id: 'health-processing' });
       
       const processingResult = await healthProcessor.processHealthEntry(content);
       
       if (!processingResult.success || !processingResult.data) {
         toast.error('Failed to analyze health entry: ' + processingResult.error, { id: 'health-processing' });
-        // Still keep the entry even if AI processing fails
+        
         setEntries(prev => [entry, ...prev]);
         setIsProcessing(false);
         return;
       }
 
-      // Step 3: Update entry with AI data
+      
       const { error: updateError } = await healthService.updateHealthEntryWithAI(
         entry.id!,
         processingResult.data,
@@ -101,10 +101,10 @@ export const useHealthMemory = (): UseHealthMemoryReturn => {
 
       if (updateError) {
         console.error('Failed to update entry with AI data:', updateError);
-        // Keep the entry even if update fails
+        
         setEntries(prev => [entry, ...prev]);
       } else {
-        // Update the entry with AI data
+        
         const updatedEntry = {
           ...entry,
           structured_data: processingResult.data,
@@ -167,7 +167,7 @@ export const useHealthMemory = (): UseHealthMemoryReturn => {
     
     setLoadingSummary(true);
     try {
-      // Get recent entries (last 30 days)
+      
       const { data: recentEntries } = await healthService.getUserHealthEntries(user.id, 30, 0);
       
       if (!recentEntries || recentEntries.length === 0) {
@@ -176,7 +176,7 @@ export const useHealthMemory = (): UseHealthMemoryReturn => {
         return null;
       }
 
-      // Generate summary using AI
+      
       const summaryData = await healthProcessor.generateHealthSummary(recentEntries);
       setSummary(summaryData);
       return summaryData;

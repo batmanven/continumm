@@ -96,7 +96,7 @@ IMPORTANT:
 
   async processBillText(rawText: string): Promise<ProcessingResult> {
     try {
-      // Step 1: Clean and prepare text
+      
       const cleanedText = this.cleanText(rawText);
       
       if (!cleanedText || cleanedText.length < 50) {
@@ -106,7 +106,7 @@ IMPORTANT:
         };
       }
 
-      // Step 2: Create prompt and process
+      
       const prompt = this.createProcessingPrompt(cleanedText);
       
       const result = await ai.models.generateContent({
@@ -115,12 +115,12 @@ IMPORTANT:
     });
     const text = result.text;
 
-      // Step 3: Parse and validate JSON response
+      
       try {
         const cleanJsonText = text.replace(/```json\n?|\n?```/g, '').trim();
         const structuredData = JSON.parse(cleanJsonText) as BillData;
 
-        // Step 4: Validate and post-process data
+        
         const validatedData = this.validateAndCleanData(structuredData);
 
         return {
@@ -169,24 +169,24 @@ IMPORTANT:
   private normalizeDate(dateString?: string): string {
     if (!dateString) return "";
     
-    // Try to parse various date formats
+    
     const date = new Date(dateString);
     if (!isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0]; // YYYY-MM-DD
+      return date.toISOString().split('T')[0]; 
     }
     
-    // If parsing fails, return original string
+    
     return dateString;
   }
 
   async extractTextFromFile(file: File): Promise<string> {
     try {
-      // Handle text files directly
+      
       if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
         return await file.text();
       }
 
-      // Handle images with OCR
+      
       if (file.type.startsWith('image/')) {
         const result = await Tesseract.recognize(file, 'eng', {
           logger: (m) => console.log(m),
@@ -194,9 +194,9 @@ IMPORTANT:
         return result.data.text;
       }
 
-      // Handle PDFs (basic support - would need PDF.js for full support)
+      
       if (file.type === 'application/pdf') {
-        // For now, throw error - PDF support would require additional library
+        
         throw new Error('PDF support coming soon. Please use text files or images for now.');
       }
 

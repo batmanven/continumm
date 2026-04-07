@@ -7,6 +7,7 @@ import {
   Heart,
   History,
   ClipboardList,
+  Activity,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -27,6 +28,7 @@ const items = [
   { title: "Bill Explainer", url: "/app/bill-explainer", icon: FileText },
   { title: "Previous Bills", url: "/app/previous-bills", icon: History },
   { title: "Doctor Summaries", url: "/app/doctor-summaries", icon: ClipboardList },
+  { title: "Symptom Checker", url: "/app/symptom-checker", icon: Activity },
   { title: "Settings", url: "/app/settings", icon: Settings },
 ];
 

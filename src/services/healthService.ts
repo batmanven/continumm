@@ -233,7 +233,7 @@ export class HealthService {
         return { error: error.message };
       }
 
-      // Generate summary statistics
+      
       const summary = {
         total_entries: data?.length || 0,
         entry_types: {},
@@ -244,19 +244,19 @@ export class HealthService {
         recent_entries: data?.slice(-5).reverse() || []
       };
 
-      // Process entries for summary
+      
       data?.forEach(entry => {
-        // Count entry types
+        
         summary.entry_types[entry.entry_type] = (summary.entry_types[entry.entry_type] || 0) + 1;
 
-        // Extract symptoms
+        
         if (entry.structured_data?.symptoms) {
           entry.structured_data.symptoms.forEach((symptom: any) => {
             summary.common_symptoms[symptom.name] = (summary.common_symptoms[symptom.name] || 0) + 1;
           });
         }
 
-        // Extract medications
+        
         if (entry.structured_data?.medications) {
           entry.structured_data.medications.forEach((med: any) => {
             if (!summary.medications.find((m: any) => m.name === med.name)) {
@@ -265,7 +265,7 @@ export class HealthService {
           });
         }
 
-        // Track mood
+        
         if (entry.structured_data?.mood) {
           summary.mood_trend.push({
             date: entry.created_at,
@@ -273,7 +273,7 @@ export class HealthService {
           });
         }
 
-        // Track energy
+        
         if (entry.structured_data?.energy) {
           summary.energy_trend.push({
             date: entry.created_at,

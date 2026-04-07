@@ -231,7 +231,7 @@ const BillExplainer = () => {
   );
 };
 
-// Component to display the processed bill results
+
 const BillResultDisplay = ({ result, onReset, isViewMode = false }: { result: any; onReset: () => void; isViewMode?: boolean }) => {
   const data = result.structured_data as BillData;
 

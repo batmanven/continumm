@@ -101,7 +101,7 @@ Response:`;
   private validateHealthData(data: any): StructuredHealthData {
     const validated: StructuredHealthData = {};
 
-    // Validate symptoms
+    
     if (data.symptoms && Array.isArray(data.symptoms)) {
       validated.symptoms = data.symptoms.filter((symptom: any) => 
         symptom.name && 
@@ -109,21 +109,21 @@ Response:`;
       );
     }
 
-    // Validate medications
+    
     if (data.medications && Array.isArray(data.medications)) {
       validated.medications = data.medications.filter((med: any) => 
         med.name && med.dosage
       );
     }
 
-    // Validate appointments
+    
     if (data.appointments && Array.isArray(data.appointments)) {
       validated.appointments = data.appointments.filter((apt: any) => 
         apt.doctor && apt.specialty
       );
     }
 
-    // Validate mood
+    
     if (data.mood && ['very_low', 'low', 'neutral', 'high', 'very_high'].includes(data.mood.level)) {
       validated.mood = {
         level: data.mood.level,
@@ -131,7 +131,7 @@ Response:`;
       };
     }
 
-    // Validate energy
+    
     if (data.energy && ['very_low', 'low', 'neutral', 'high', 'very_high'].includes(data.energy.level)) {
       validated.energy = {
         level: data.energy.level,
@@ -139,7 +139,7 @@ Response:`;
       };
     }
 
-    // Validate sleep
+    
     if (data.sleep && typeof data.sleep.hours === 'number' && 
         ['poor', 'fair', 'good', 'excellent'].includes(data.sleep.quality)) {
       validated.sleep = {
@@ -149,7 +149,7 @@ Response:`;
       };
     }
 
-    // Validate vitals
+    
     if (data.vitals) {
       const vitals: any = {};
       if (typeof data.vitals.temperature === 'number') {
@@ -171,12 +171,12 @@ Response:`;
       }
     }
 
-    // Validate tags
+    
     if (data.tags && Array.isArray(data.tags)) {
       validated.tags = data.tags.filter((tag: string) => typeof tag === 'string');
     }
 
-    // Validate mentioned_date
+    
     if (data.mentioned_date && typeof data.mentioned_date === 'string') {
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
       if (dateRegex.test(data.mentioned_date)) {
@@ -184,7 +184,7 @@ Response:`;
       }
     }
 
-    // Validate confidence
+    
     if (typeof data.confidence === 'number' && data.confidence >= 0 && data.confidence <= 1) {
       validated.confidence = data.confidence;
     }
@@ -194,7 +194,7 @@ Response:`;
 
   async processHealthEntry(userInput: string): Promise<HealthProcessingResult> {
     try {
-      // Step 1: Clean and validate input
+      
       const cleanedText = this.cleanText(userInput);
       
       if (!cleanedText || cleanedText.length < 3) {
@@ -204,7 +204,7 @@ Response:`;
         };
       }
 
-      // Step 2: Create prompt and process with AI
+      
       const prompt = this.createHealthPrompt(cleanedText);
       
       const result = await ai.models.generateContent({
@@ -213,15 +213,15 @@ Response:`;
       });
       const text = result.text;
 
-      // Step 3: Parse and validate JSON response
+      
       try {
         const cleanJsonText = text.replace(/```json\n?|\n?```/g, '').trim();
         const structuredData = JSON.parse(cleanJsonText) as StructuredHealthData;
 
-        // Step 4: Validate and clean data
+        
         const validatedData = this.validateHealthData(structuredData);
 
-        // Step 5: Calculate confidence based on data completeness
+        
         const confidence = this.calculateConfidence(validatedData, cleanedText);
 
         return {
@@ -246,11 +246,11 @@ Response:`;
   }
 
   private calculateConfidence(data: StructuredHealthData, originalText: string): number {
-    let confidence = 0.5; // Base confidence
+    let confidence = 0.5; 
     let totalFields = 0;
     let filledFields = 0;
 
-    // Check each field type
+    
     const fields = ['symptoms', 'medications', 'appointments', 'mood', 'energy', 'sleep', 'vitals', 'tags'];
     
     fields.forEach(field => {
@@ -260,12 +260,12 @@ Response:`;
       }
     });
 
-    // Adjust confidence based on field completeness
+    
     if (totalFields > 0) {
       confidence += (filledFields / totalFields) * 0.3;
     }
 
-    // Adjust confidence based on text length and specificity
+    
     if (originalText.length > 50) {
       confidence += 0.1;
     }
@@ -273,7 +273,7 @@ Response:`;
       confidence += 0.1;
     }
 
-    // Ensure confidence doesn't exceed 1
+    
     return Math.min(confidence, 1);
   }
 
@@ -283,7 +283,7 @@ Response:`;
     recommendations: string[];
   }> {
     try {
-      // Create a summary of recent health entries
+      
       const entriesText = entries.map(entry => 
         `Date: ${entry.created_at?.split('T')[0]}, Type: ${entry.entry_type}, Content: ${entry.raw_content}`
       ).join('\n');

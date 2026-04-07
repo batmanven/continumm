@@ -232,14 +232,14 @@ export class DoctorSummaryService {
         return { error: error.message };
       }
 
-      // Get all summaries for stats
+      
       const { data: allSummaries } = await this.getUserDoctorSummaries(userId, 100, 0);
       
       if (!allSummaries) {
         return { error: 'Failed to fetch summaries for stats' };
       }
 
-      // Calculate stats
+      
       const stats = {
         total_summaries: allSummaries.length,
         favorite_summaries: allSummaries.filter(s => s.is_favorite).length,

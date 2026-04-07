@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Send, 
   ClipboardList, 
@@ -23,7 +22,8 @@ import {
   Loader2,
   AlertTriangle,
   Phone,
-  RefreshCw
+  RefreshCw,
+  Brain
 } from "lucide-react";
 import {
   Dialog,
@@ -32,9 +32,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useHealthMemory } from "@/hooks/useHealthMemory";
+import { useSymptomChecker } from "@/hooks/useSymptomChecker";
 import { HealthEntry } from "@/services/healthService";
-import { doctorSummaryService } from "@/services/doctorSummaryService";
-import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { toast } from "sonner";
 
 interface Message {
@@ -59,8 +58,14 @@ const HealthMemory = () => {
     loadingSummary
   } = useHealthMemory();
 
+  const {
+    addSymptomEntry,
+    patterns,
+    insights,
+    analyzing
+  } = useSymptomChecker();
+
   const [messages, setMessages] = useState<Message[]>(() => {
-    // Load messages from localStorage on initial load
     const savedMessages = localStorage.getItem('health-chat-messages');
     if (savedMessages) {
       try {
@@ -70,10 +75,9 @@ const HealthMemory = () => {
         console.error('Error loading saved messages:', error);
       }
     }
-    // Return default welcome message if no saved messages
     return [{
       role: "ai",
-      content: "Hey! 👋 I'm your health buddy. Tell me how you're feeling and I'll organize it into your timeline. Simple as that! 💚",
+      content: "Hey! I'm your health buddy. I can help you track symptoms, medications, mood, and sleep. I'll also analyze patterns in your symptoms! What's on your mind today?",
       timestamp: new Date().toISOString()
     }];
   });
@@ -87,7 +91,7 @@ const HealthMemory = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Save messages to localStorage whenever they change
+  
   useEffect(() => {
     try {
       localStorage.setItem('health-chat-messages', JSON.stringify(messages));
@@ -100,141 +104,162 @@ const HealthMemory = () => {
     scrollToBottom();
   }, [messages]);
 
-  const detectEmergencyKeywords = (text: string): boolean => {
+  const detectSymptomKeywords = (text: string): { hasSymptoms: boolean; symptoms: string[] } => {
+    const symptomKeywords = [
+      'headache', 'pain', 'ache', 'hurt', 'sore', 'stiff', 'numb', 'tingling',
+      'nausea', 'vomiting', 'dizzy', 'lightheaded', 'faint', 'fatigue', 'tired',
+      'fever', 'chills', 'sweating', 'cough', 'cold', 'flu', 'congestion',
+      'bloating', 'cramps', 'indigestion', 'heartburn', 'diarrhea', 'constipation',
+      'rash', 'itchy', 'redness', 'swelling', 'inflammation', 'bruise'
+    ];
+    
+    const foundSymptoms: string[] = [];
+    const lowerText = text.toLowerCase();
+    
+    symptomKeywords.forEach(keyword => {
+      if (lowerText.includes(keyword)) {
+        foundSymptoms.push(keyword);
+      }
+    });
+    
+    return {
+      hasSymptoms: foundSymptoms.length > 0,
+      symptoms: foundSymptoms
+    };
+  };
+
+  const extractSeverity = (text: string): number => {
+    const severityMap: { [key: string]: number } = {
+      'mild': 3, 'slight': 3, 'minor': 3,
+      'moderate': 5, 'medium': 5,
+      'severe': 8, 'bad': 8, 'terrible': 8, 'awful': 8,
+      'extreme': 10, 'worst': 10, 'unbearable': 10
+    };
+    
+    const lowerText = text.toLowerCase();
+    for (const [word, severity] of Object.entries(severityMap)) {
+      if (lowerText.includes(word)) {
+        return severity;
+      }
+    }
+    
+    return 5; 
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || isProcessing) return;
+
+    const userMessage = {
+      role: "user" as const,
+      content: input,
+      timestamp: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    const currentInput = input;
+    setInput("");
+
+    
     const emergencyKeywords = [
       'kill myself', 'end my life', 'suicide right now',
       'unconscious', 'not breathing', 'stopped breathing',
       'heart attack right now', 'stroke right now'
     ];
     
-    return emergencyKeywords.some(keyword => 
-      text.toLowerCase().includes(keyword)
-    );
-  };
-
-  const handleSend = async () => {
-    if (!input.trim() || isProcessing) return;
-
-    if (detectEmergencyKeywords(input)) {
+    if (emergencyKeywords.some(keyword => 
+      currentInput.toLowerCase().includes(keyword)
+    )) {
       setMessages(prev => [...prev, {
         role: "ai",
-        content: "🚨 I notice you might be in a serious situation. Please reach out to emergency services or a trusted person right away. Your safety is important. If you need immediate help, please call emergency services.",
+        content: "I notice you might be in a serious situation. Please reach out to emergency services or a trusted person right away. Your safety is important. If you need immediate help, please call emergency services.",
         timestamp: new Date().toISOString()
       }]);
-      setInput("");
       return;
     }
 
-    const userMessage: Message = {
-      role: "user",
-      content: input,
-      timestamp: new Date().toISOString()
-    };
+    
+    const { hasSymptoms, symptoms } = detectSymptomKeywords(currentInput);
+    
+    if (hasSymptoms && user) {
+      const severity = extractSeverity(currentInput);
+      
+      
+      await addSymptomEntry({
+        symptom_name: symptoms[0], 
+        severity,
+        description: currentInput,
+        triggers: [],
+        stress_level: 5, 
+        sleep_hours: 7, 
+        start_time: new Date().toISOString()
+      });
+    }
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput("");
+    
+    await addHealthEntry(currentInput, 'general');
 
-    // Add health entry
-    await addHealthEntry(input);
+    
+    let aiResponse = generateAIResponse(currentInput, hasSymptoms, symptoms);
+    
+    if (hasSymptoms) {
+      aiResponse += "\n\nI've also added this to your symptom tracker to help identify patterns over time.";
+    }
 
-    // Add AI response
-    const aiResponse = generateAIResponse(input);
-    const aiMessage: Message = {
+    setMessages(prev => [...prev, {
       role: "ai",
       content: aiResponse,
       timestamp: new Date().toISOString()
-    };
-
-    setMessages(prev => [...prev, aiMessage]);
+    }]);
   };
 
-  const generateAIResponse = (userInput: string): string => {
-    // Generate contextual AI response based on user input
+  const generateAIResponse = (userInput: string, hasSymptoms: boolean, symptoms: string[]): string => {
     const lowerInput = userInput.toLowerCase();
     
-    if (lowerInput.includes('headache') || lowerInput.includes('pain')) {
-      return `Got it! I've added your headache to your timeline. ${extractSymptom(userInput)} recorded for today. Hope you feel better soon! 💚`;
+    if (hasSymptoms) {
+      const symptomResponse = `I've noted your ${symptoms.join(' and ')} symptoms. Tracking these patterns can help identify triggers and frequency. I'll analyze this along with your other health data to find any patterns.`;
+      
+      if (symptoms.includes('headache')) {
+        return symptomResponse + " Headaches can be related to stress, sleep, or dehydration. Have you noticed any patterns with yours?";
+      }
+      if (symptoms.includes('pain')) {
+        return symptomResponse + " Pain tracking is important for identifying triggers. Is this a new pain or something you've experienced before?";
+      }
+      if (symptoms.includes('fatigue') || symptoms.includes('tired')) {
+        return symptomResponse + " Fatigue can be related to sleep, stress, or nutrition. How has your sleep been lately?";
+      }
+      
+      return symptomResponse;
     }
     
     if (lowerInput.includes('medicine') || lowerInput.includes('took') || lowerInput.includes('pill')) {
-      return `Medication noted! ${extractMedication(userInput)} added to your timeline. I'll keep track of how you're feeling. 📋`;
+      return `Medication noted! I'll keep track of how you're feeling and any side effects. Remember to take medications as prescribed by your doctor.`;
     }
     
     if (lowerInput.includes('tired') || lowerInput.includes('fatigue') || lowerInput.includes('energy')) {
-      return `Energy level logged! ${extractEnergyLevel(userInput)} recorded for today. This will help track your patterns over time. ⚡`;
+      return `Energy level logged! This will help track your patterns over time. Make sure you're getting enough rest and stay hydrated.`;
     }
     
     if (lowerInput.includes('sleep') || lowerInput.includes('slept')) {
-      return `Sleep info added! ${extractSleepInfo(userInput)} recorded. Good sleep is so important for recovery! 😴`;
+      return `Sleep info added! Good sleep is so important for recovery and overall health. I'll track this along with your other symptoms.`;
     }
     
     if (lowerInput.includes('hello') || lowerInput.includes('hi') || lowerInput.includes('hey')) {
-      return `Hello! 👋 How are you feeling today? Tell me what's going on and I'll add it to your health timeline.`;
+      return `Hello! How are you feeling today? You can tell me about any symptoms, medications, sleep, or just how you're doing overall. I'll help organize it all and look for patterns.`;
     }
     
-    return `Got it! Added to your health timeline: "${userInput}". Anything else you want to track today? 📝`;
-  };
-
-  const extractSymptom = (text: string): string => {
-    const symptoms = ['headache', 'fever', 'pain', 'ache', 'nausea', 'dizziness', 'cough'];
-    for (const symptom of symptoms) {
-      if (text.toLowerCase().includes(symptom)) {
-        return symptom.charAt(0).toUpperCase() + symptom.slice(1);
-      }
+    if (lowerInput.includes('pattern') || lowerInput.includes('trend')) {
+      return `Great question! I'm tracking patterns in your symptoms, mood, sleep, and energy. Check out the Symptom Checker page in the sidebar for detailed pattern analysis!`;
     }
-    return "Symptom recorded";
-  };
-
-  const extractMedication = (text: string): string => {
-    const meds = ['paracetamol', 'ibuprofen', 'aspirin', 'medicine', 'pill', 'tablet'];
-    for (const med of meds) {
-      if (text.toLowerCase().includes(med)) {
-        return med.charAt(0).toUpperCase() + med.slice(1);
-      }
-    }
-    return "Medication recorded";
-  };
-
-  const extractEnergyLevel = (text: string): string => {
-    if (text.toLowerCase().includes('very tired')) return "Very low energy";
-    if (text.toLowerCase().includes('tired')) return "Low energy";
-    if (text.toLowerCase().includes('energetic')) return "High energy";
-    if (text.toLowerCase().includes('very energetic')) return "Very high energy";
-    return "Energy level recorded";
-  };
-
-  const extractSleepInfo = (text: string): string => {
-    const hours = text.match(/\d+\s*hours?/);
-    if (hours) return hours[0];
-    return "Sleep recorded";
-  };
-
-  const handleSearch = async () => {
-    if (searchQuery.trim()) {
-      await searchEntries(searchQuery);
-    } else {
-      await refreshEntries();
-    }
-  };
-
-  const handleFilter = async (filter: string) => {
-    if (activeFilter === filter) {
-      setActiveFilter(null);
-      await refreshEntries();
-    } else {
-      setActiveFilter(filter);
-      await getEntriesByType(filter as HealthEntry['entry_type']);
-    }
+    
+    return `Got it! I've added that to your health timeline. Is there anything specific about how you're feeling that you'd like me to track more closely?`;
   };
 
   const handleClearChat = () => {
-    // Clear localStorage
     localStorage.removeItem('health-chat-messages');
     
-    // Reset to welcome message only
     setMessages([{
       role: "ai",
-      content: "Hey! 👋 I'm your health buddy. Tell me how you're feeling and I'll organize it into your timeline. Simple as that! 💚",
+      content: "Hey! I'm your health buddy. I can help you track symptoms, medications, mood, and sleep. I'll also analyze patterns in your symptoms! What's on your mind today?",
       timestamp: new Date().toISOString()
     }]);
     
@@ -244,9 +269,9 @@ const HealthMemory = () => {
   const handleGenerateSummary = async () => {
     const summaryData = await generateDoctorSummary();
     if (summaryData) {
-      // Save to database
       if (user) {
         try {
+          
           const { error } = await doctorSummaryService.createDoctorSummary(user.id, {
             title: `Health Summary - ${new Date().toLocaleDateString()}`,
             summary: summaryData.summary,
@@ -286,20 +311,6 @@ const HealthMemory = () => {
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
   return (
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6 opacity-0 animate-fade-in">
@@ -308,7 +319,7 @@ const HealthMemory = () => {
             Health Memory
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Chat naturally, we'll organize everything
+            Chat naturally, we'll organize everything and find patterns
           </p>
         </div>
         <div className="flex gap-2">
@@ -338,225 +349,158 @@ const HealthMemory = () => {
         </div>
       </div>
 
+      {/* Symptom Insights Banner */}
+      {insights.length > 0 && (
+        <div className="mb-6 opacity-0 animate-fade-in" style={{ animationDelay: "100ms" }}>
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 text-blue-800">
+                <Brain className="h-5 w-5" />
+                <span className="text-sm font-medium">Recent Symptom Insights:</span>
+              </div>
+              <div className="mt-2 space-y-1">
+                {insights.slice(0, 2).map((insight, index) => (
+                  <p key={index} className="text-sm text-blue-700">
+                    {insight.message}
+                  </p>
+                ))}
+              </div>
+              <Button variant="outline" size="sm" className="mt-2" asChild>
+                <a href="/app/symptom-checker">View Detailed Analysis</a>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Chat Section */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Search and Filter */}
-          <div className="flex gap-2 opacity-0 animate-fade-in" style={{ animationDelay: "50ms" }}>
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search health entries..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                className="pl-10"
-              />
-            </div>
-            <Button variant="outline" size="sm" onClick={handleSearch}>
-              Search
-            </Button>
-          </div>
-
-          {/* Filter Pills */}
-          <div className="flex flex-wrap gap-2 opacity-0 animate-fade-in" style={{ animationDelay: "100ms" }}>
-            {['symptom', 'medication', 'appointment', 'mood', 'energy', 'sleep'].map((filter) => (
-              <Badge
-                key={filter}
-                variant={activeFilter === filter ? "default" : "secondary"}
-                className="cursor-pointer"
-                onClick={() => handleFilter(filter)}
-              >
-                {getEntryIcon(filter)}
-                <span className="ml-1 capitalize">{filter}</span>
-              </Badge>
-            ))}
-          </div>
-
-          {/* Chat Interface */}
-          <div
-            className="rounded-2xl border border-border/50 bg-card shadow-soft flex flex-col h-[500px] opacity-0 animate-fade-in"
-            style={{ animationDelay: "150ms" }}
-          >
-            <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}
-                >
-                  {msg.role === "ai" && (
-                    <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                      <Bot className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                  )}
+          <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "200ms" }}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                Health Chat
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-96 overflow-y-auto mb-4 p-4 bg-muted/30 rounded-lg">
+                {messages.map((message, index) => (
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-muted text-foreground rounded-bl-md"
+                    key={index}
+                    className={`flex gap-3 mb-4 ${
+                      message.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs opacity-70">
-                        {formatTimestamp(msg.timestamp)}
-                      </span>
+                    {message.role === "ai" && (
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Bot className="h-4 w-4 text-primary" />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[80%] p-3 rounded-lg ${
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted"
+                      }`}
+                    >
+                      <p className="text-sm">{message.content}</p>
+                      <p className="text-xs opacity-70 mt-1">
+                        {new Date(message.timestamp).toLocaleTimeString()}
+                      </p>
                     </div>
-                    {msg.content.split("\n").map((line, j) => (
-                      <span key={j}>
-                        {line.includes("**") ? (
-                          <span
-                            dangerouslySetInnerHTML={{
-                              __html: line.replace(
-                                /\*\*(.*?)\*\*/g,
-                                "<strong>$1</strong>",
-                              ),
-                            }}
-                          />
-                        ) : (
-                          line
-                        )}
-                        {j < msg.content.split("\n").length - 1 && <br />}
-                      </span>
-                    ))}
+                    {message.role === "user" && (
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                        <User className="h-4 w-4 text-primary-foreground" />
+                      </div>
+                    )}
                   </div>
-                  {msg.role === "user" && (
-                    <div className="h-7 w-7 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">
-                      <User className="h-3.5 w-3.5 text-secondary-foreground" />
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-
-            <div className="border-t border-border/50 p-4">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSend();
-                }}
-                className="flex gap-2"
-              >
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+              <div className="flex gap-2">
                 <Input
-                  placeholder="Describe how you're feeling…"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  placeholder="Tell me how you're feeling..."
+                  onKeyPress={(e) => e.key === "Enter" && handleSend()}
                   disabled={isProcessing}
-                  className="flex-1"
                 />
-                <Button variant="hero" size="icon" type="submit" disabled={isProcessing}>
+                <Button
+                  onClick={handleSend}
+                  disabled={!input.trim() || isProcessing}
+                  size="icon"
+                >
                   {isProcessing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
                 </Button>
-              </form>
-            </div>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Timeline Section */}
         <div className="space-y-4">
-          <div
-            className="rounded-2xl border border-border/50 bg-card shadow-soft p-5 h-fit opacity-0 animate-fade-in"
-            style={{ animationDelay: "200ms" }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-medium text-muted-foreground">
+          <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "300ms" }}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
                 Health Timeline
-              </h3>
-              <Button variant="ghost" size="sm" onClick={refreshEntries} disabled={isLoading}>
-                {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Calendar className="h-3 w-3" />}
-              </Button>
-            </div>
-            <div className="space-y-4 max-h-[400px] overflow-y-auto">
-              {entries.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No health entries yet. Start chatting to build your timeline!
-                </p>
-              ) : (
-                entries.map((entry, i) => (
-                  <div key={entry.id} className="flex gap-3 group">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2.5 w-2.5 rounded-full bg-primary/60 mt-1.5" />
-                      {i < entries.length - 1 && (
-                        <div className="w-px flex-1 bg-border mt-1" />
-                      )}
-                    </div>
-                    <div className="pb-4 flex-1 group-hover:bg-secondary/30 rounded-lg p-2 -mx-2 transition-colors">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {entries.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Start chatting to build your health timeline
+                  </p>
+                ) : (
+                  entries.slice(0, 5).map((entry, index) => (
+                    <div key={entry.id} className="flex items-start gap-3">
+                      <div className="w-2 h-2 rounded-full bg-primary mt-2" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
                           {getEntryIcon(entry.entry_type)}
-                          <p className="text-xs font-medium text-primary">
-                            {formatDate(entry.created_at!)}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteEntry(entry.id!)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <p className="text-sm text-foreground">{entry.raw_content}</p>
-                      {entry.ai_processed && (
-                        <div className="mt-2">
                           <Badge variant="secondary" className="text-xs">
-                            AI Processed • {Math.round((entry.confidence_score || 0) * 100)}% confidence
+                            {entry.entry_type}
                           </Badge>
                         </div>
-                      )}
+                        <p className="text-sm text-foreground">
+                          {entry.raw_content.length > 50
+                            ? entry.raw_content.substring(0, 50) + "..."
+                            : entry.raw_content}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(entry.created_at!).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Quick Stats */}
-          <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "250ms" }}>
-            <CardContent className="p-4">
-              <h4 className="text-sm font-medium mb-3">Quick Stats</h4>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span>Total Entries</span>
-                  <span className="font-medium">{entries.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>AI Processed</span>
-                  <span className="font-medium">
-                    {entries.filter(e => e.ai_processed).length}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span>This Week</span>
-                  <span className="font-medium">
-                    {entries.filter(e => {
-                      const entryDate = new Date(e.created_at!);
-                      const weekAgo = new Date();
-                      weekAgo.setDate(weekAgo.getDate() - 7);
-                      return entryDate > weekAgo;
-                    }).length}
-                  </span>
-                </div>
+                  ))
+                )}
               </div>
+              {entries.length > 5 && (
+                <Button variant="outline" size="sm" className="w-full mt-4">
+                  View All Entries
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Doctor Summary Modal */}
+      {/* Summary Dialog */}
       <Dialog open={showSummary} onOpenChange={setShowSummary}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">
-              Doctor-Ready Summary
+            <DialogTitle className="font-display flex items-center gap-2">
+              <ClipboardList className="h-5 w-5" />
+              Doctor Summary
             </DialogTitle>
           </DialogHeader>
-          {summary ? (
+          {summary && (
             <div className="space-y-4 text-sm">
               <div className="rounded-xl bg-secondary/50 p-4">
                 <h4 className="font-semibold text-foreground mb-2">
@@ -566,29 +510,28 @@ const HealthMemory = () => {
                   {summary.summary}
                 </p>
               </div>
-              <div className="rounded-xl bg-secondary/50 p-4">
-                <h4 className="font-semibold text-foreground mb-2">Key Insights</h4>
-                <ul className="space-y-1 text-muted-foreground">
-                  {summary.insights?.map((insight: string, i: number) => (
-                    <li key={i}>• {insight}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="rounded-xl bg-primary/5 border border-primary/10 p-4">
-                <h4 className="font-semibold text-foreground mb-2">
-                  Recommendations
-                </h4>
-                <ul className="space-y-1 text-muted-foreground">
-                  {summary.recommendations?.map((rec: string, i: number) => (
-                    <li key={i}>• {rec}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Generating summary...</p>
+              
+              {summary.insights.length > 0 && (
+                <div className="rounded-xl bg-blue-50 p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">Key Insights</h4>
+                  <ul className="space-y-2 text-blue-800">
+                    {summary.insights.map((insight, i) => (
+                      <li key={i}> {insight}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {summary.recommendations.length > 0 && (
+                <div className="rounded-xl bg-green-50 p-4">
+                  <h4 className="font-semibold text-green-900 mb-2">Recommendations</h4>
+                  <ul className="space-y-2 text-green-800">
+                    {summary.recommendations.map((rec, i) => (
+                      <li key={i}> {rec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

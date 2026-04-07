@@ -14,9 +14,9 @@ const NavLink = forwardRef<HTMLAnchorElement, NavLinkCompatProps>(
     const { setOpenMobile } = useSidebar();
     const location = useLocation();
 
-    // Auto-close mobile sidebar when navigating
+    
     const handleClick = () => {
-      // Check if we're on mobile (sidebar is in mobile state)
+      
       const isMobile = window.innerWidth < 768;
       if (isMobile) {
         setOpenMobile(false);

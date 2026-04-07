@@ -39,7 +39,7 @@ export const useBillProcessor = (): UseBillProcessorReturn => {
     setProcessingStage('idle');
 
     try {
-      // Step 1: Extract text from file if provided
+      
       let finalText = rawText;
       let fileUrl: string | undefined;
       let fileType: string | undefined;
@@ -68,7 +68,7 @@ export const useBillProcessor = (): UseBillProcessorReturn => {
         }
       }
 
-      // Step 2: Process with AI
+      
       setProcessingStage('processing');
       toast.loading('Processing bill with AI...', { id: 'bill-processing' });
       
@@ -82,7 +82,7 @@ export const useBillProcessor = (): UseBillProcessorReturn => {
         return;
       }
 
-      // Step 3: Store in database
+      
       const dbResult = await billService.createBill(
         user.id,
         finalText,
@@ -99,7 +99,7 @@ export const useBillProcessor = (): UseBillProcessorReturn => {
         return;
       }
 
-      // Step 4: Success
+      
       if (dbResult.data) {
         setResult(dbResult.data);
         setProcessingStage('completed');

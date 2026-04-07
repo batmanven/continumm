@@ -53,7 +53,7 @@ const PreviousBills = () => {
   };
 
   const handleViewBill = (bill: BillRecord) => {
-    // Navigate to bill explainer with bill data
+    
     navigate("/app/bill-explainer", { 
       state: { 
         billData: bill,
