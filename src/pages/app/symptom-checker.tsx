@@ -25,6 +25,7 @@ import { useSymptomChecker } from '@/hooks/useSymptomChecker';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { SymptomEntry, SymptomPattern } from '@/services/symptomCheckerService';
 import { BodyHeatmap, BodyRegion } from '@/components/ui/BodyHeatmap';
+import BodyPartCutout from '@/components/ui/BodyPartCutout';
 
 const mapSymptomToRegion = (symptom: string): BodyRegion[] => {
   const s = symptom.toLowerCase();
@@ -131,7 +132,6 @@ const SymptomChecker = () => {
       await addSymptomEntry(entryData);
     }
 
-    
     setFormData({
       symptom_name: '',
       severity: [5],
@@ -201,7 +201,7 @@ const SymptomChecker = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between opacity-0 animate-fade-in">
+      <div className="flex items-center justify-between animate-fade-in">
         <div>
           <h1 className="font-display text-2xl font-semibold text-foreground">
             Symptom Pattern Tracker
@@ -248,7 +248,7 @@ const SymptomChecker = () => {
       )}
 
       {/* Insights & Heatmap Section */}
-      <div className="grid lg:grid-cols-3 gap-6 opacity-0 animate-fade-in" style={{ animationDelay: "100ms" }}>
+      <div className="grid lg:grid-cols-3 gap-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
           
           {/* Heatmap Column */}
           <Card id="tour-sc-heatmap" className="lg:col-span-1 border-primary/20 bg-primary/5">
@@ -269,15 +269,24 @@ const SymptomChecker = () => {
                   hoveredRegion={hoveredRegion}
                   selectedRegion={selectedRegion}
                   onRegionHover={setHoveredRegion}
-                  onRegionClick={(r) => setSelectedRegion(r === selectedRegion ? null : r)}
+                  onRegionClick={(r) => {
+                    setSelectedRegion(r);
+                    const regionName = r.replace(/-/g, ' ').replace(/([A-Z])/g, ' $1').trim();
+                    const capitalizedRegion = regionName.charAt(0).toUpperCase() + regionName.slice(1);
+                    setFormData(prev => ({
+                      ...prev,
+                      symptom_name: `${capitalizedRegion} Issue`
+                    }));
+                    setShowAddForm(true);
+                  }}
                   gender={userGender}
                 />
                 <div className="mt-4 text-center">
                   <p className="text-sm font-medium text-foreground capitalize">
-                     {hoveredRegion ? hoveredRegion.replace(/([A-Z])/g, ' $1').trim() : (selectedRegion ? selectedRegion.replace(/([A-Z])/g, ' $1').trim() : 'Hover a region')}
+                     {hoveredRegion ? hoveredRegion.replace(/-/g, ' ').replace(/([A-Z])/g, ' $1').trim() : (selectedRegion ? selectedRegion.replace(/-/g, ' ').replace(/([A-Z])/g, ' $1').trim() : 'Tap a region to report')}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1 px-4 text-balance">
-                    Red indicates higher symptom frequency and severity.
+                    Red indicates higher symptom frequency and severity. Tap a region to quickly log a new symptom.
                   </p>
                 </div>
               </div>
@@ -403,7 +412,7 @@ const SymptomChecker = () => {
         ) : (
           <div className="grid gap-3">
             {entries.map((entry, index) => (
-              <Card key={entry.id} className="opacity-0 animate-fade-in" style={{ animationDelay: `${300 + index * 50}ms` }}>
+              <Card key={entry.id} className="animate-fade-in" style={{ animationDelay: `${300 + index * 50}ms` }}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -471,121 +480,166 @@ const SymptomChecker = () => {
 
       {/* Add/Edit Form Modal */}
       {showAddForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle>
-                {editingEntry ? 'Edit Symptom Entry' : 'Add Symptom Entry'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-foreground">Symptom Name</label>
-                  <Input
-                    value={formData.symptom_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, symptom_name: e.target.value }))}
-                    placeholder="e.g., Headache, Nausea, Fatigue"
-                    required
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in zoom-in duration-200">
+          <Card className={`w-full ${selectedRegion ? 'max-w-3xl' : 'max-w-xl'} max-h-[90vh] overflow-hidden flex flex-col ${selectedRegion ? 'md:flex-row' : ''} shadow-2xl border-primary/20`}>
+            
+            {/* Visual Cutout Sidebar */}
+            {selectedRegion && (
+              <div className="md:w-1/3 bg-primary/5 border-r border-primary/10 p-6 flex flex-col items-center justify-center space-y-4">
+                <div className="text-center">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-primary/60 mb-1">Focus Area</h3>
+                  <p className="text-sm font-semibold capitalize bg-white text-slate-900 px-3 py-1 rounded-full shadow-sm border">
+                    {selectedRegion.replace(/-/g, ' ')}
+                  </p>
+                </div>
+
+                <div className="relative h-64 w-full flex items-center justify-center overflow-hidden rounded-2xl bg-white shadow-inner border border-primary/10 p-4">
+                  <BodyPartCutout
+                    region={selectedRegion}
+                    gender={userGender}
                   />
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium text-foreground">
-                    Severity: {formData.severity[0]}/10
-                  </label>
-                  <Slider
-                    value={formData.severity}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, severity: value }))}
-                    max={10}
-                    min={1}
-                    step={1}
-                    className="mt-2"
-                  />
-                </div>
+                <p className="text-[10px] text-muted-foreground text-center px-4 leading-relaxed">
+                  Selected region is highlighted for clinical context in your health memory.
+                </p>
+              </div>
+            )}
 
-                <div>
-                  <label className="text-sm font-medium text-foreground">Description</label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Describe your symptoms in more detail..."
-                    rows={3}
-                  />
-                </div>
+            {/* Form Content */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl">
+                  {editingEntry ? 'Refine Symptom Entry' : 'New Symptom Log'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-y-auto pr-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Column 1 */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Symptom Name</label>
+                        <Input
+                          value={formData.symptom_name}
+                          onChange={(e) => setFormData(prev => ({ ...prev, symptom_name: e.target.value }))}
+                          placeholder="Headache, Fatigue..."
+                          required
+                          className="mt-1.5 h-11"
+                        />
+                      </div>
 
-                <div>
-                  <label className="text-sm font-medium text-foreground">Triggers</label>
-                  <Input
-                    value={formData.triggers}
-                    onChange={(e) => setFormData(prev => ({ ...prev, triggers: e.target.value }))}
-                    placeholder="e.g., Stress, Lack of sleep, Certain foods (comma separated)"
-                  />
-                </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Severity Intensity: {formData.severity[0]}/10
+                        </label>
+                        <Slider
+                          value={formData.severity}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, severity: value }))}
+                          max={10}
+                          min={1}
+                          step={1}
+                          className="mt-4"
+                        />
+                        <div className="flex justify-between mt-1 text-[10px] font-medium text-muted-foreground">
+                          <span>Mild</span>
+                          <span>Acute</span>
+                        </div>
+                      </div>
 
-                <div>
-                  <label className="text-sm font-medium text-foreground">Duration</label>
-                  <Input
-                    value={formData.duration}
-                    onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-                    placeholder="e.g., 2 hours, All day, Since morning"
-                  />
-                </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Triggers</label>
+                        <Input
+                          value={formData.triggers}
+                          onChange={(e) => setFormData(prev => ({ ...prev, triggers: e.target.value }))}
+                          placeholder="Stress, caffeine..."
+                          className="mt-1.5 h-11"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Duration</label>
+                        <Input
+                          value={formData.duration}
+                          onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+                          placeholder="e.g. 2 hours"
+                          className="mt-1.5 h-11"
+                        />
+                      </div>
+                    </div>
 
-                <div>
-                  <label className="text-sm font-medium text-foreground">
-                    Stress Level: {formData.stress_level[0]}/10
-                  </label>
-                  <Slider
-                    value={formData.stress_level}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, stress_level: value }))}
-                    max={10}
-                    min={1}
-                    step={1}
-                    className="mt-2"
-                  />
-                </div>
+                    {/* Column 2 */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Clinical Description</label>
+                        <Textarea
+                          value={formData.description}
+                          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Describe the sensation, exact location, or any patterns you notice..."
+                          rows={4}
+                          className="mt-1.5 resize-none"
+                        />
+                      </div>
 
-                <div>
-                  <label className="text-sm font-medium text-foreground">
-                    Sleep Hours: {formData.sleep_hours[0]}
-                  </label>
-                  <Slider
-                    value={formData.sleep_hours}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, sleep_hours: value }))}
-                    max={12}
-                    min={0}
-                    step={0.5}
-                    className="mt-2"
-                  />
-                </div>
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Daily Stress: {formData.stress_level[0]}/10
+                        </label>
+                        <Slider
+                          value={formData.stress_level}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, stress_level: value }))}
+                          max={10}
+                          min={1}
+                          step={1}
+                          className="mt-4"
+                        />
+                      </div>
 
-                <div className="flex gap-2 pt-4">
-                  <Button type="submit" className="flex-1">
-                    {editingEntry ? 'Update' : 'Add'} Symptom
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowAddForm(false);
-                      setEditingEntry(null);
-                      setFormData({
-                        symptom_name: '',
-                        severity: [5],
-                        description: '',
-                        triggers: '',
-                        duration: '',
-                        stress_level: [5],
-                        sleep_hours: [7]
-                      });
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
+                      <div>
+                        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Sleep (Last Night): {formData.sleep_hours[0]}h
+                        </label>
+                        <Slider
+                          value={formData.sleep_hours}
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, sleep_hours: value }))}
+                          max={12}
+                          min={0}
+                          step={0.5}
+                          className="mt-4"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-4 border-t">
+                    <Button type="submit" className="flex-1 bg-primary h-12 text-base shadow-lg shadow-primary/20">
+                      {editingEntry ? 'Save Changes' : 'Log Symptom'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-12 px-6"
+                      onClick={() => {
+                        setShowAddForm(false);
+                        setEditingEntry(null);
+                        setSelectedRegion(null);
+                        setFormData({
+                          symptom_name: '',
+                          severity: [5],
+                          description: '',
+                          triggers: '',
+                          duration: '',
+                          stress_level: [5],
+                          sleep_hours: [7]
+                        });
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </div>
           </Card>
         </div>
       )}

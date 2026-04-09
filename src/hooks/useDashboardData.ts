@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { healthService, HealthEntry } from '@/services/healthService';
 import { billService, BillRecord } from '@/services/billService';
 import { doctorSummaryService, DoctorSummary } from '@/services/doctorSummaryService';
+import { medicationService } from '@/services/medicationService';
 import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
 import { useProfile } from '@/contexts/ProfileContext';
 
@@ -26,6 +27,11 @@ export interface DashboardStats {
     latestSummary?: DoctorSummary;
     recentSummaries: DoctorSummary[];
     topInsights: string[];
+  };
+  continuumScore: {
+    score: number;
+    status: 'optimal' | 'stable' | 'needs_attention';
+    breakdown: Array<{ label: string; impact: number }>;
   };
   recentActivity: Array<{
     id: string;
@@ -62,11 +68,13 @@ export const useDashboardData = () => {
       const [
         healthEntriesResult,
         billsResult,
-        summariesResult
+        summariesResult,
+        medicationsResult
       ] = await Promise.allSettled([
         healthService.getUserHealthEntries(user.id, 50, 0, activeProfile.id),
         billService.getUserBills(user.id, 20, 0, activeProfile.id),
-        doctorSummaryService.getUserDoctorSummaries(user.id, 10, 0, activeProfile.id)
+        doctorSummaryService.getUserDoctorSummaries(user.id, 10, 0, activeProfile.id),
+        medicationService.getMedications(user.id, activeProfile.id, activeProfile.linked_user_id)
       ]);
 
       
@@ -82,6 +90,10 @@ export const useDashboardData = () => {
         ? summariesResult.value.data 
         : [];
 
+      const medications = medicationsResult.status === 'fulfilled' && medicationsResult.value.data
+        ? medicationsResult.value.data
+        : [];
+
       
       const healthStats = processHealthStats(healthEntries);
       
@@ -94,10 +106,13 @@ export const useDashboardData = () => {
       
       const recentActivity = processRecentActivity(healthEntries, bills, summaries);
 
+      const continuumScore = calculateContinuumScore(healthStats, medications);
+
       setData({
         healthStats,
         financialStats,
         insightsStats,
+        continuumScore,
         recentActivity
       });
     } catch (error) {
@@ -329,6 +344,64 @@ export const useDashboardData = () => {
       return 'Hospital Stay';
     }
     return 'Other';
+  };
+
+  const calculateContinuumScore = (healthStats: any, medications: any[]) => {
+    // If no data exists yet, return a perfect initial score with an informing label
+    if (healthStats.totalEntries === 0 && medications.length === 0) {
+      return { 
+        score: 100, 
+        status: 'stable' as const, 
+        breakdown: [{ label: 'System Initializing', impact: 0 }] 
+      };
+    }
+
+    let score = 85; // Baseline for active accounts
+    const breakdown: Array<{ label: string; impact: number }> = [];
+
+    // Symptom Impact - Only reward if they are actually tracking
+    if (healthStats.thisWeekEntries > 5) {
+      score += 5;
+      breakdown.push({ label: 'Consistent Tracking', impact: 5 });
+    }
+
+    // Mood Trend - Only apply if a trend is detected
+    if (healthStats.moodTrend === 'improving') {
+      score += 5;
+      breakdown.push({ label: 'Positive Mood Trend', impact: 5 });
+    } else if (healthStats.moodTrend === 'declining') {
+      score -= 5;
+      breakdown.push({ label: 'Mood Concerns', impact: -5 });
+    }
+
+    // Sleep - ONLY penalize if they have actually logged sleep and it's low
+    // We check if avgSleepHours > 0 to ensure data was actually provided
+    if (healthStats.avgSleepHours > 0) {
+      if (healthStats.avgSleepHours > 7.5) {
+        score += 5;
+        breakdown.push({ label: 'Quality Rest', impact: 5 });
+      } else if (healthStats.avgSleepHours < 6) {
+        score -= 5;
+        breakdown.push({ label: 'Sleep Deprivation', impact: -5 });
+      }
+    }
+
+    // Medication Safety
+    const interactions = medications.filter(m => m.active && m.drug_interactions_cache);
+    if (interactions.length > 0) {
+      score -= 20;
+      breakdown.push({ label: 'Medication Interactions', impact: -20 });
+    } else if (medications.length > 0) {
+      score += 5;
+      breakdown.push({ label: 'Medication Adherence', impact: 5 });
+    }
+
+    const finalScore = Math.min(Math.max(score, 0), 100);
+    let status: 'optimal' | 'stable' | 'needs_attention' = 'stable';
+    if (finalScore > 90) status = 'optimal';
+    if (finalScore < 70) status = 'needs_attention';
+
+    return { score: finalScore, status, breakdown };
   };
 
   return {

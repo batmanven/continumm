@@ -14,6 +14,7 @@ export interface BodyHeatmapProps {
   selectedRegion?: BodyRegion | null;
   onRegionClick?: (region: BodyRegion) => void;
   gender?: 'male' | 'female';
+  hideControls?: boolean;
 }
 
 export const BodyHeatmap: React.FC<BodyHeatmapProps> = ({
@@ -22,7 +23,8 @@ export const BodyHeatmap: React.FC<BodyHeatmapProps> = ({
   hoveredRegion,
   selectedRegion,
   onRegionClick,
-  gender = 'male'
+  gender = 'male',
+  hideControls = false
 }) => {
   const [view, setView] = useState<'anterior' | 'posterior'>('anterior');
 
@@ -46,25 +48,27 @@ export const BodyHeatmap: React.FC<BodyHeatmapProps> = ({
   }, [heatData, hoveredRegion, selectedRegion]);
 
   return (
-    <div className="w-full flex flex-col items-center justify-center p-4">
-      <div className="flex items-center justify-center mb-4 z-10 relative">
-        <div className="flex bg-secondary/50 rounded-lg p-1 select-none">
-          <button 
-            className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'anterior' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            onClick={() => setView('anterior')}
-          >
-            Front
-          </button>
-          <button 
-            className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'posterior' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-            onClick={() => setView('posterior')}
-          >
-            Back
-          </button>
+    <div className={`w-full flex flex-col items-center justify-center ${hideControls ? 'p-0' : 'p-4'}`}>
+      {!hideControls && (
+        <div className="flex items-center justify-center mb-4 z-10 relative">
+          <div className="flex bg-secondary/50 rounded-lg p-1 select-none">
+            <button 
+              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'anterior' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setView('anterior')}
+            >
+              Front
+            </button>
+            <button 
+              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${view === 'posterior' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setView('posterior')}
+            >
+              Back
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="w-full max-w-[280px] drop-shadow-sm transition-all duration-300">
+      <div className={`w-full max-w-[280px] drop-shadow-sm transition-all duration-300 ${hideControls ? 'mt-0' : ''}`}>
           <Model
              data={data}
              type={view}

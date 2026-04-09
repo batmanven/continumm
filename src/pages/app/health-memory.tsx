@@ -409,7 +409,7 @@ const HealthMemory = () => {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6 opacity-0 animate-fade-in">
+      <div className="flex items-center justify-between mb-6 animate-fade-in">
         <div>
           <h1 className="font-display text-2xl font-semibold text-foreground">
             Health Memory
@@ -473,7 +473,7 @@ const HealthMemory = () => {
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Chat Section */}
         <div className="lg:col-span-2 space-y-4">
-          <Card id="tour-hm-chat" className="opacity-0 animate-fade-in" style={{ animationDelay: "200ms" }}>
+          <Card id="tour-hm-chat" className="animate-fade-in" style={{ animationDelay: "200ms" }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bot className="h-5 w-5" />
@@ -602,7 +602,7 @@ const HealthMemory = () => {
 
         {/* Timeline Section */}
         <div className="space-y-4">
-          <Card id="tour-hm-timeline" className="opacity-0 animate-fade-in" style={{ animationDelay: "300ms" }}>
+          <Card id="tour-hm-timeline" className="animate-fade-in" style={{ animationDelay: "300ms" }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />

@@ -14,17 +14,24 @@ import {
   Trash2,
   Heart,
   TrendingUp,
+  TrendingDown,
   Clock,
   Tag,
   Loader2,
   FileText,
   Plus,
-  Download
+  Download,
+  Stethoscope,
+  ArrowRight,
+  MessageSquare,
+  Activity as ActivityIcon,
+  Brain
 } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useProfile } from "@/contexts/ProfileContext";
 import { toast } from "sonner";
 import { doctorSummaryService, DoctorSummary } from "@/services/doctorSummaryService";
+import { healthService } from "@/services/healthService";
 import {
   Dialog,
   DialogContent,
@@ -159,6 +166,102 @@ const DoctorSummaries = () => {
   };
 
   const [isExporting, setIsExporting] = useState(false);
+  const [showPreVisitBrief, setShowPreVisitBrief] = useState(false);
+  const [preVisitBrief, setPreVisitBrief] = useState<any>(null);
+
+  const calculateAge = (dobString?: string) => {
+    if (!dobString) return "Not Specified";
+    try {
+      const birthDate = new Date(dobString);
+      if (isNaN(birthDate.getTime())) return "Not Specified";
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age.toString();
+    } catch (e) {
+      return "Not Specified";
+    }
+  };
+
+  const generatePreVisitBrief = async () => {
+    if (!user) return;
+    setLoading(true);
+    
+    try {
+      // 1. Fetch real health entries for the last 30 days
+      const { data: entries, error } = await healthService.getUserHealthEntries(user.id, 100, 0, activeProfile.id);
+      
+      if (error || !entries) {
+        toast.error("Could not fetch health data for brief");
+        setLoading(false);
+        return;
+      }
+
+      // 2. Aggregate Symptoms
+      const symptomCounts: Record<string, { count: number, severities: number[], notes: string[] }> = {};
+      entries.filter(e => e.entry_type === 'symptom').forEach(entry => {
+        const symptoms = entry.structured_data?.symptoms || [];
+        symptoms.forEach((s: any) => {
+          const name = s.name;
+          if (!symptomCounts[name]) {
+            symptomCounts[name] = { count: 0, severities: [], notes: [] };
+          }
+          symptomCounts[name].count++;
+          if (s.severity === 'mild') symptomCounts[name].severities.push(3);
+          if (s.severity === 'moderate') symptomCounts[name].severities.push(6);
+          if (s.severity === 'severe') symptomCounts[name].severities.push(9);
+          if (entry.raw_content) symptomCounts[name].notes.push(entry.raw_content);
+        });
+      });
+
+      const chiefComplaints = Object.entries(symptomCounts)
+        .sort((a, b) => b[1].count - a[1].count)
+        .slice(0, 3)
+        .map(([name, data]) => {
+          const avgSeverity = data.severities.reduce((a, b) => a + b, 0) / data.severities.length;
+          return {
+            symptom: name,
+            frequency: data.count > 4 ? "High" : data.count > 2 ? "Moderate" : "Low",
+            trend: data.severities[0] > data.severities[data.severities.length - 1] ? "Declining" : "Increasing",
+            notes: data.notes[0]?.substring(0, 50) + "..."
+          };
+        });
+
+      // 3. Aggregate active days for clinical insight
+      const uniqueDays = new Set(entries.map(e => new Date(e.created_at!).toDateString()));
+
+      // 4. Construct Brief
+      const brief = {
+        patientName: activeProfile.name || user?.user_metadata?.full_name || "Patient",
+        patientAge: calculateAge(activeProfile.date_of_birth),
+        period: "Last 30 Days",
+        chiefComplaints: chiefComplaints.length > 0 ? chiefComplaints : [
+          { symptom: "No symptoms reported", frequency: "N/A", trend: "N/A", notes: "Patient history clear for this period." }
+        ],
+        clinicalFocus: [
+          `Analysis based on ${entries.length} tracked clinical events over ${uniqueDays.size} active days.`,
+          chiefComplaints.length > 0 ? `${chiefComplaints[0].symptom} shows a ${chiefComplaints[0].trend} trend.` : "Patient state remains stable.",
+          "Clinical data provides longitudinal context for diagnostic evaluation."
+        ],
+        suggestedQueries: [
+          "Assessment of symptom frequency relative to baseline?",
+          "Review of pharmacological efficacy for primary complaints?",
+          "Diagnostic necessity for longitudinal pattern changes?"
+        ]
+      };
+      
+      setPreVisitBrief(brief);
+      setShowPreVisitBrief(true);
+    } catch (err) {
+      console.error("Error generating brief:", err);
+      toast.error("Failed to generate brief");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleExportPDF = async () => {
     if (!selectedSummary) return;
@@ -190,6 +293,37 @@ const DoctorSummaries = () => {
     }
   };
 
+  const [isExportingBrief, setIsExportingBrief] = useState(false);
+  const handleExportBriefPDF = async () => {
+    if (!preVisitBrief) return;
+    
+    setIsExportingBrief(true);
+    const element = document.getElementById('pre-visit-brief-content');
+    if (!element) {
+      setIsExportingBrief(false);
+      return;
+    }
+    
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const opt = {
+        margin:       0,
+        filename:     `consultation_prep_${preVisitBrief.patientName.toLowerCase().replace(/\s+/g, '_')}.pdf`,
+        image:        { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, logging: false },
+        jsPDF:        { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+      };
+      
+      await html2pdf().set(opt).from(element).save();
+      toast.success("Consultation Brief exported successfully");
+    } catch (error) {
+      console.error("PDF export error:", error);
+      toast.error("Failed to export PDF");
+    } finally {
+      setIsExportingBrief(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -214,7 +348,7 @@ const DoctorSummaries = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between opacity-0 animate-fade-in">
+      <div className="flex items-center justify-between animate-fade-in">
         <div>
           <h1 className="font-display text-2xl font-semibold text-foreground">
             Doctor Summaries
@@ -223,15 +357,46 @@ const DoctorSummaries = () => {
             Your AI-generated health summaries for medical appointments
           </p>
         </div>
-        <Button onClick={handleGenerateNewSummary} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Generate New Summary
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={generatePreVisitBrief} className="gap-2 border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100">
+            <Stethoscope className="h-4 w-4" />
+            AI Consultation Prep
+          </Button>
+          <Button onClick={handleGenerateNewSummary} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Generate New Summary
+          </Button>
+        </div>
       </div>
+
+      {/* Consultation Prep Card (Hero) */}
+      <Card id="tour-ds-hero" className="border-indigo-200 dark:border-indigo-500/20 bg-gradient-to-br from-indigo-50 to-white dark:from-slate-900 dark:to-indigo-950/20 overflow-hidden relative group animate-fade-in" style={{ animationDelay: "50ms" }}>
+        <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 pointer-events-none group-hover:opacity-10 transition-opacity">
+          <Stethoscope className="h-24 w-24 text-indigo-500" />
+        </div>
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="h-16 w-16 rounded-2xl bg-indigo-600 dark:bg-indigo-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-indigo-200 dark:shadow-indigo-500/20">
+               <Brain className="h-8 w-8" />
+            </div>
+            <div className="flex-1 space-y-2 text-center md:text-left">
+               <h3 className="font-bold text-lg text-indigo-950 dark:text-white flex items-center justify-center md:justify-start gap-2">
+                 AI Consultation Prep
+               </h3>
+               <p className="text-sm text-indigo-800/80 dark:text-indigo-200/60 max-w-2xl">
+                 Don't walk into your next appointment unprepared. Our AI analyzes your history to generate a <strong>"Pre-Visit Brief"</strong> for your doctor—highlighting the patterns you might forget to mention.
+               </p>
+            </div>
+            <Button onClick={generatePreVisitBrief} className="shrink-0 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white gap-2 shadow-lg shadow-indigo-200 dark:shadow-none rounded-xl px-8">
+               Generate Brief <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 opacity-0 animate-fade-in" style={{ animationDelay: "100ms" }}>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-fade-in" style={{ animationDelay: "100ms" }}>
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
@@ -280,7 +445,7 @@ const DoctorSummaries = () => {
       )}
 
       {/* Search and Filter */}
-      <div className="flex gap-2 opacity-0 animate-fade-in" style={{ animationDelay: "200ms" }}>
+      <div className="flex gap-2 animate-fade-in" style={{ animationDelay: "200ms" }}>
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -506,6 +671,175 @@ const DoctorSummaries = () => {
                 </div>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Pre-Visit Brief Dialog */}
+      <Dialog open={showPreVisitBrief} onOpenChange={setShowPreVisitBrief}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-50">
+          {preVisitBrief && (
+            <>
+            <div id="pre-visit-brief-content" className="flex flex-col min-h-full relative overflow-hidden">
+                {/* PDF Background Watermark */}
+                <div className="absolute inset-0 pointer-events-none opacity-[0.02] flex items-center justify-center">
+                   <Brain className="h-[500px] w-[500px] rotate-12 text-slate-900" />
+                </div>
+
+                {/* Clinical Header Bar */}
+                <div className="bg-slate-900 text-white p-10 space-y-6 relative z-10 border-b-4 border-indigo-600 font-sans">
+                   <div className="flex justify-between items-start">
+                      <div className="space-y-3">
+                         <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-lg bg-indigo-600 flex items-center justify-center">
+                               <Stethoscope className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                               <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-indigo-400">Continuum Passport</p>
+                               <p className="text-xs font-mono text-slate-400">REF: {Math.random().toString(36).substring(7).toUpperCase()}</p>
+                            </div>
+                         </div>
+                         <h2 className="text-4xl font-display font-bold tracking-tight">{preVisitBrief.patientName}</h2>
+                         <div className="flex items-center gap-4 text-slate-400 text-sm font-medium">
+                            <span>Age: {preVisitBrief.patientAge}</span>
+                            <span className="h-1 w-1 rounded-full bg-slate-600" />
+                            <span>Clinical Window: {preVisitBrief.period}</span>
+                         </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-4">
+                         <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1">IDENTITY VERIFIED</Badge>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="grid md:grid-cols-5 gap-0 relative z-10 text-slate-900 bg-white">
+                   {/* Left Column: Aggregated Clinical Data */}
+                   <div className="md:col-span-3 p-10 space-y-10 border-r border-slate-100 bg-white">
+                      <section>
+                         <h3 className="text-[11px] font-bold text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2 border-b border-indigo-50 pb-2">
+                            <ActivityIcon className="h-4 w-4" /> Chief Complaint Summary (n={preVisitBrief.chiefComplaints.length})
+                         </h3>
+                         <div className="space-y-4">
+                            {preVisitBrief.chiefComplaints.map((cc: any, i: number) => (
+                               <div key={i} className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 bg-slate-50/30 group hover:border-indigo-100 transition-all font-sans">
+                                  <div className="space-y-1.5 flex-1">
+                                     <div className="flex items-center gap-2">
+                                        <p className="font-bold text-slate-900 text-lg">{cc.symptom}</p>
+                                        <Badge variant="outline" className="text-[9px] font-bold px-1.5 h-4 border-slate-200">ICD-10 REL</Badge>
+                                     </div>
+                                     <p className="text-xs text-slate-500 font-medium leading-relaxed italic pr-4">"{cc.notes}"</p>
+                                  </div>
+                                  <div className="text-right shrink-0 flex flex-col items-end gap-2">
+                                     <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Freq</span>
+                                        <Badge className={`rounded-md text-[9px] font-bold ${
+                                          cc.frequency === 'High' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                                        }`}>{cc.frequency}</Badge>
+                                     </div>
+                                     <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Trend</span>
+                                        <div className={`flex items-center gap-1 text-[10px] font-bold ${
+                                          cc.trend === 'Increasing' ? 'text-rose-600' : 'text-emerald-600'
+                                        }`}>
+                                           {cc.trend === 'Increasing' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                           {cc.trend}
+                                        </div>
+                                     </div>
+                                  </div>
+                               </div>
+                            ))}
+                         </div>
+                      </section>
+
+                      <section>
+                         <h3 className="text-[11px] font-bold text-indigo-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2 border-b border-indigo-50 pb-2">
+                            <Brain className="h-4 w-4" /> Longitudinal Insights
+                         </h3>
+                         <div className="space-y-5">
+                            {preVisitBrief.clinicalFocus.map((p: string, i: number) => (
+                               <div key={i} className="flex gap-4 p-4 rounded-xl hover:bg-slate-50 transition-colors group">
+                                  <div className="h-8 w-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0 text-xs font-bold font-mono">
+                                    0{i + 1}
+                                  </div>
+                                  <p className="text-sm text-slate-700 leading-relaxed font-semibold italic">
+                                     {p}
+                                  </p>
+                               </div>
+                            ))}
+                         </div>
+                      </section>
+                   </div>
+
+                   {/* Right Column: Physician Action & Transcription Area */}
+                   <div className="md:col-span-2 p-10 bg-slate-50/50 space-y-10">
+                      <section className="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-indigo-200 relative overflow-hidden font-sans">
+                         <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <ClipboardList className="h-20 w-20" />
+                         </div>
+                         <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] mb-6 flex items-center gap-2 opacity-80">
+                            <MessageSquare className="h-4 w-4" /> Recommended Queries
+                         </h3>
+                         <div className="space-y-4 relative z-10">
+                            {preVisitBrief.suggestedQueries.map((q: string, i: number) => (
+                               <div key={i} className="p-4 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 transition-colors text-sm font-medium leading-snug cursor-pointer group flex gap-3 text-white">
+                                  <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 group-hover:bg-white/40 transition-colors">
+                                     <ArrowRight className="h-3 w-3" />
+                                  </div>
+                                  {q}
+                               </div>
+                            ))}
+                         </div>
+                      </section>
+
+                      <section className="space-y-4">
+                         <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2 font-sans">
+                            <FileText className="h-4 w-4" /> Physician Directives
+                         </h3>
+                         <div className="h-48 border-2 border-dashed border-slate-200 rounded-3xl bg-white/80" />
+                         <div className="pt-8 space-y-6">
+                            <div className="flex justify-between items-end border-b border-slate-200 pb-2">
+                               <p className="text-[10px] font-bold text-slate-400 uppercase">Provider Signature</p>
+                               <p className="text-[10px] font-mono text-slate-300">DATE: ____/____/____</p>
+                            </div>
+                            <p className="text-[9px] text-slate-400 text-center uppercase tracking-[0.3em] font-bold font-sans">
+                               Continuum Medical Hub - Official Clinical Prep - v2.0
+                            </p>
+                         </div>
+                      </section>
+                   </div>
+                </div>
+            </div>
+
+            {/* Footer Controls - Outside the PDF capture area */}
+            <div className="bg-white border-t p-6 flex justify-between items-center relative z-20 font-sans">
+                <Button variant="ghost" onClick={() => setShowPreVisitBrief(false)} className="text-slate-500 hover:text-slate-900 font-bold uppercase tracking-widest text-[10px]">
+                   Discard Brief
+                </Button>
+                <div className="flex gap-4">
+                   <Button 
+                     variant="outline" 
+                     className="rounded-2xl border-slate-200 px-6 gap-2 font-bold shadow-sm" 
+                     onClick={handleExportBriefPDF}
+                     disabled={isExportingBrief}
+                   >
+                     {isExportingBrief ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                     Download Brief (PDF)
+                   </Button>
+                   <Button variant="outline" className="rounded-2xl border-slate-200 px-6 gap-2 font-bold shadow-sm" onClick={() => {
+                      const element = document.getElementById('pre-visit-brief-content');
+                      if (element) {
+                         navigator.clipboard.writeText(element.innerText);
+                         toast.success("Clinical transcript copied.");
+                      }
+                   }}>
+                     <ClipboardList className="h-4 w-4" /> Copy Transcript
+                   </Button>
+                   <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-2xl px-8 shadow-lg gap-2 font-bold" onClick={() => setShowPreVisitBrief(false)}>
+                     Update & Synchronize
+                   </Button>
+                </div>
+            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

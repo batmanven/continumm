@@ -89,8 +89,90 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Continuum Score Card */}
+      <Card id="tour-dashboard-score" className="border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950 dark:border-indigo-500/20 overflow-hidden relative group shadow-sm transition-all hover:shadow-md animate-in fade-in duration-500">
+        <div className="absolute top-0 right-0 p-4 opacity-[0.03] dark:opacity-[0.07] pointer-events-none group-hover:opacity-10 transition-opacity">
+          <Activity className="h-64 w-64" />
+        </div>
+        
+        <CardContent className="p-8 flex flex-col md:flex-row items-center gap-10">
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative h-36 w-36 flex items-center justify-center shrink-0">
+               <svg className="h-full w-full -rotate-90">
+                 <circle
+                   cx="72"
+                   cy="72"
+                   r="64"
+                   fill="none"
+                   stroke="currentColor"
+                   strokeWidth="10"
+                   className="text-indigo-100/50 dark:text-slate-800"
+                 />
+                 <circle
+                   cx="72"
+                   cy="72"
+                   r="64"
+                   fill="none"
+                   stroke="currentColor"
+                   strokeWidth="10"
+                   strokeDasharray={402}
+                   strokeDashoffset={402 - (data.continuumScore.score / 100) * 402}
+                   strokeLinecap="round"
+                   className="text-indigo-600 dark:text-indigo-400 transition-all duration-1000 ease-out drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]"
+                 />
+               </svg>
+               <div className="absolute inset-0 flex flex-col items-center justify-center">
+                 <span className="text-4xl font-display font-bold text-indigo-950 dark:text-white">{data.continuumScore.score}</span>
+                 <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-300 tracking-[0.2em] uppercase">Score</span>
+               </div>
+            </div>
+            <div className="flex flex-col items-center">
+              <Badge className={`px-4 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border-none shadow-sm ${
+                data.continuumScore.status === 'optimal' ? 'bg-emerald-500 text-white' : 
+                data.continuumScore.status === 'stable' ? 'bg-indigo-600 text-white' : 
+                'bg-amber-500 text-white'
+              }`}>
+                {data.continuumScore.status.replace('_', ' ')}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="flex-1 space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-display font-bold text-slate-900 dark:text-white">Continuum Score</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
+                Your holistic health index, dynamically calculated from symptoms, medication adherence, and sleep patterns.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+              {data.continuumScore.breakdown.map((item, i) => (
+                <div key={i} className="flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-slate-800/50 border border-indigo-100/50 dark:border-indigo-500/20 backdrop-blur-sm rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-sm transition-transform hover:-translate-y-0.5">
+                  {item.impact > 0 ? (
+                    <TrendingUp className="h-3.5 w-3.5 text-emerald-500 mr-0.5" />
+                  ) : item.impact < 0 ? (
+                    <TrendingDown className="h-3.5 w-3.5 text-rose-500 mr-0.5" />
+                  ) : (
+                    <Minus className="h-3.5 w-3.5 text-slate-400 mr-0.5" />
+                  )}
+                  {item.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="shrink-0 flex flex-col items-center gap-3">
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl px-6 py-6 h-auto shadow-xl shadow-indigo-200 dark:shadow-none font-bold gap-2 group">
+              <Brain className="h-5 w-5 transition-transform group-hover:scale-110" />
+              Get Insights
+            </Button>
+            <p className="text-[10px] text-slate-400 font-medium">Updated 5 min ago</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {!isProfileComplete && (
-        <Card id="tour-dashboard-completion" className="border-primary/20 bg-primary/5 overflow-hidden relative group">
+        <Card id="tour-dashboard-completion" className="border-primary/20 bg-primary/5 overflow-hidden relative group animate-in fade-in duration-500">
           <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <User className="h-24 w-24 -rotate-12" />
           </div>
