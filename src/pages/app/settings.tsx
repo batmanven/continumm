@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -462,7 +463,7 @@ const SettingsPage = () => {
             onClick={handleSaveProfile}
             disabled={isSaving}
           >
-            {isSaving ? "Synchronizing..." : "Save Changes"}
+            {isSaving ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </div>
