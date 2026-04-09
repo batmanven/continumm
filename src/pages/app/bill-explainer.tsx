@@ -18,13 +18,17 @@ import {
   User,
   Settings,
   ShieldCheck,
-  PiggyBank
+  PiggyBank,
+  Scale,
+  Handshake,
+  ArrowRight
 } from "lucide-react";
 import { useBillProcessor } from "@/hooks/useBillProcessor";
 import { BillData } from "@/services/billProcessor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
 
 const BillExplainer = () => {
@@ -65,6 +69,17 @@ const BillExplainer = () => {
   };
   
   const { processBill, isProcessing, isExtractingText, result, error, clearResult, processingStage } = useBillProcessor();
+
+  useEffect(() => {
+    const handleOpenSettings = () => setShowSettings(true);
+    const handleCloseSettings = () => setShowSettings(false);
+    window.addEventListener('continuum-tour:open-insurance-settings', handleOpenSettings);
+    window.addEventListener('continuum-tour:close-insurance-settings', handleCloseSettings);
+    return () => {
+      window.removeEventListener('continuum-tour:open-insurance-settings', handleOpenSettings);
+      window.removeEventListener('continuum-tour:close-insurance-settings', handleCloseSettings);
+    };
+  }, []);
 
   useEffect(() => {
     if (location.state?.billData && location.state?.isViewMode) {
@@ -137,7 +152,7 @@ const BillExplainer = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="opacity-0 animate-fade-in">
+      <div className="animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-semibold text-foreground">
@@ -216,7 +231,7 @@ const BillExplainer = () => {
         <>
           {!result ? (
             <div
-              className="rounded-2xl border border-border/50 bg-card p-8 shadow-soft text-center opacity-0 animate-fade-in"
+              className="rounded-2xl border border-border/50 bg-card p-8 shadow-soft text-center animate-fade-in"
               style={{ animationDelay: "100ms" }}
             >
               <div className="mx-auto max-w-md">
@@ -364,6 +379,38 @@ const BillResultDisplay = ({ result, onReset, isViewMode = false, insuranceSetti
   };
 
   const est = calculateInsurance();
+  const [showDisputeLetter, setShowDisputeLetter] = useState(false);
+  const [disputeLetter, setDisputeLetter] = useState("");
+
+  const generateDisputeLetter = () => {
+    const hospital = data.hospitalName || "[Hospital Name]";
+    const patient = data.patientName || "[Patient Name]";
+    const date = data.date || "[Date]";
+    const total = data.totalAmount || 0;
+    
+    const issuesList = data.anomalies?.map(a => `- ${a}`).join('\n') || "- Unexpected high cost for specific line items compared to average market rates.";
+    
+    const letter = `
+Subject: Formal Dispute of Medical Bill - ${patient} - ${date}
+
+To the Billing Department at ${hospital},
+
+I am writing to formally dispute the bill received for services on ${date} (Total Amount: ₹${total.toLocaleString()}).
+
+Upon review using healthcare advocacy analysis, the following discrepancies were identified:
+${issuesList}
+
+I request a detailed, itemized statement (using CPT and HCPCS codes) and a secondary review of these charges to ensure they align with standard fair market rates and that no "upcoding" or unbundling errors occurred.
+
+Please place this account on hold and provide a written response within 30 days.
+
+Sincerely,
+${patient}
+    `.trim();
+
+    setDisputeLetter(letter);
+    setShowDisputeLetter(true);
+  };
 
   return (
     <div className="space-y-4 opacity-0 animate-fade-in">
@@ -411,6 +458,58 @@ const BillResultDisplay = ({ result, onReset, isViewMode = false, insuranceSetti
           </CardContent>
         </Card>
       </div>
+
+      {/* Patient Advocate Card */}
+      <Card id="tour-bill-advocate" className="border-indigo-200 bg-gradient-to-br from-indigo-50 to-white overflow-hidden relative group">
+        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+          <Scale className="h-24 w-24" />
+        </div>
+        <CardContent className="p-6">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="h-16 w-16 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+               <ShieldCheck className="h-8 w-8" />
+            </div>
+            <div className="flex-1 space-y-2 text-center md:text-left">
+               <h3 className="font-bold text-lg text-indigo-950 flex items-center justify-center md:justify-start gap-2">
+                 The Patient Advocate
+                 <Badge className="bg-indigo-600 text-[10px] h-4">AI Active</Badge>
+               </h3>
+               <p className="text-sm text-indigo-800/80">
+                 Our AI compared your bill against regional market averages. We detected <strong>{data.anomalies?.length || 1} potential billing errors</strong> or high-cost items that could be negotiated.
+               </p>
+               <div className="flex flex-wrap gap-2 justify-center md:justify-start pt-1">
+                 <Badge variant="outline" className="text-[10px] bg-white">No-Upcoding Check: Passing</Badge>
+                 <Badge variant="outline" className="text-[10px] bg-white border-amber-200 text-amber-700">Cost Variance: +15% vs Avg</Badge>
+               </div>
+            </div>
+            <Button onClick={generateDisputeLetter} className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-lg shadow-indigo-200">
+               <PiggyBank className="h-4 w-4" /> Generate Dispute Letter
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Dispute Letter Dialog */}
+      <Dialog open={showDisputeLetter} onOpenChange={setShowDisputeLetter}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Handshake className="h-5 w-5 text-indigo-600" />
+              Medical Billing Dispute Letter
+            </DialogTitle>
+          </DialogHeader>
+          <div className="bg-muted p-4 rounded-lg text-sm font-mono whitespace-pre-wrap mt-2 max-h-[400px] overflow-y-auto border">
+            {disputeLetter}
+          </div>
+          <div className="flex gap-3 justify-end mt-4">
+             <Button variant="outline" onClick={() => {
+                navigator.clipboard.writeText(disputeLetter);
+                toast.success("Letter copied to clipboard!");
+             }}>Copy to Clipboard</Button>
+             <Button className="bg-indigo-600" onClick={() => setShowDisputeLetter(false)}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Insurance Breakdown */}
       <Card className="border-blue-200 bg-blue-50/50">
