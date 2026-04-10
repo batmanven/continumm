@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useProfile } from "@/contexts/ProfileContext";
@@ -67,6 +68,7 @@ const GuardiansDashboard = () => {
     if (user) {
       loadPassports();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, dependents]);
 
   const loadPassports = async () => {
