@@ -1,11 +1,11 @@
-import { Activity, Plus, FileUp, Brain, DollarSign, TrendingUp, TrendingDown, Minus, Calendar, Star, FileText, Heart, Moon, User, Shield } from "lucide-react";
+import { Activity, Plus, FileUp, Brain, DollarSign, TrendingUp, TrendingDown, Minus, FileText, Heart, Shield, Zap, Info, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { BodyHeatmap } from "@/components/ui/BodyHeatmap";
 
 const Dashboard = () => {
   const { user } = useSupabaseAuth();
@@ -13,38 +13,15 @@ const Dashboard = () => {
   const userName = activeProfile.name || user?.user_metadata?.name || user?.email || "User";
   const { data, loading, error } = useDashboardData();
 
-  const getMoodIcon = (trend: string) => {
-    switch (trend) {
-      case 'improving': return <TrendingUp className="h-4 w-4 text-green-500" />;
-      case 'declining': return <TrendingDown className="h-4 w-4 text-red-500" />;
-      default: return <Minus className="h-4 w-4 text-yellow-500" />;
-    }
-  };
-
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'health': return <Heart className="h-3 w-3" />;
-      case 'bill': return <FileText className="h-3 w-3" />;
-      case 'summary': return <Brain className="h-3 w-3" />;
-      default: return <Activity className="h-3 w-3" />;
-    }
-  };
-
-  const getActivityColor = (type: string) => {
-    switch (type) {
-      case 'health': return 'bg-blue-100 text-blue-800';
-      case 'bill': return 'bg-green-100 text-green-800';
-      case 'summary': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <span className="ml-2 text-muted-foreground">Loading dashboard...</span>
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative h-12 w-12 text-primary">
+            <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
+            <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+          </div>
+          <span className="text-sm font-medium animate-pulse text-primary/60">Aligning Health Nexus...</span>
         </div>
       </div>
     );
@@ -52,12 +29,11 @@ const Dashboard = () => {
 
   if (error || !data) {
     return (
-      <div className="max-w-5xl mx-auto space-y-6">
-        <div className="text-center py-12">
-          <Activity className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-foreground mb-2">Unable to load dashboard</h3>
-          <p className="text-sm text-muted-foreground">{error || 'Please try again later'}</p>
-        </div>
+      <div className="max-w-5xl mx-auto py-20 text-center">
+        <Activity className="h-12 w-12 text-destructive/40 mx-auto mb-4" />
+        <h3 className="text-xl font-display font-semibold mb-2">Systems Offline</h3>
+        <p className="text-muted-foreground">{error || 'Unable to sync with health data'}</p>
+        <Button variant="outline" className="mt-6" onClick={() => window.location.reload()}>Re-initialize</Button>
       </div>
     );
   }
@@ -68,370 +44,211 @@ const Dashboard = () => {
                              user?.user_metadata?.phone && 
                              user?.user_metadata?.blood_type;
 
-  const missingFields = [
-    { key: 'name', label: 'Full Name', val: user?.user_metadata?.name },
-    { key: 'gender', label: 'Gender', val: user?.user_metadata?.gender },
-    { key: 'dob', label: 'Date of Birth', val: user?.user_metadata?.date_of_birth },
-    { key: 'phone', label: 'Phone', val: user?.user_metadata?.phone },
-    { key: 'blood', label: 'Blood Group', val: user?.user_metadata?.blood_type },
-  ].filter(f => !f.val);
-
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div className="opacity-0 animate-fade-in flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-foreground tracking-tight">
-            Welcome back, {userName}
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Your clinical health summary as of {new Date().toLocaleDateString()}
-          </p>
-        </div>
+    <div className="relative min-h-screen pb-12 overflow-x-hidden">
+      {/* Immersive Background Layer */}
+      <div className="fixed inset-0 pointer-events-none -z-10">
+        <div 
+          className="absolute inset-0 opacity-[0.05] blur-[60px] scale-125 animate-drift will-change-transform"
+          style={{ 
+            backgroundImage: "url('/dashboard-bg.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+        />
+        <div className="absolute inset-0 bg-mesh opacity-20" />
       </div>
 
-      {!isProfileComplete && (
-        <Card id="tour-dashboard-completion" className="border-primary/20 bg-primary/5 overflow-hidden relative group animate-in fade-in duration-500">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <User className="h-24 w-24 -rotate-12" />
-          </div>
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <Shield className="h-8 w-8" />
-              </div>
-              <div className="flex-1 text-center md:text-left space-y-2">
-                <h3 className="font-bold text-lg">Secure Your Medical Identity</h3>
-                <p className="text-sm text-muted-foreground max-w-xl">
-                  Your emergency profile is missing <span className="text-primary font-bold">{missingFields.length} critical fields</span> ({missingFields.map(f => f.label).join(', ')}). 
-                  Completing this ensures first responders have accurate info in a crisis.
-                </p>
-              </div>
-              <Link to="/app/settings">
-                <Button variant="hero" className="rounded-xl px-8 shadow-lg shadow-primary/20">
-                  Complete Profile
-                </Button>
-              </Link>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+        {/* Minimal Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 py-8 animate-slide-up">
+          <div>
+            <div className="flex items-center gap-2 text-[10px] font-bold tracking-[0.3em] text-primary uppercase mb-2">
+              <Zap className="h-3 w-3 fill-primary" />
+              Health Nexus
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <h1 className="font-display text-3xl font-bold tracking-tight">
+              Welcome back, <span className="text-gradient">{userName.split(' ')[0]}</span>
+            </h1>
+          </div>
 
-      {/* Continuum Score Card */}
-      <Card id="tour-dashboard-score" className="border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950 dark:border-indigo-500/20 overflow-hidden relative group shadow-sm transition-all hover:shadow-md animate-in fade-in duration-500">
-        <div className="absolute top-0 right-0 p-4 opacity-[0.03] dark:opacity-[0.07] pointer-events-none group-hover:opacity-10 transition-opacity">
-          <Activity className="h-64 w-64" />
+          <div className="flex items-center gap-4">
+             {!isProfileComplete && (
+               <Link to="/app/settings" className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-600 uppercase tracking-tighter hover:bg-amber-500/20 transition-all">
+                 <Shield className="h-3 w-3" /> Complete Your Profile
+               </Link>
+             )}
+             <Link to="/app/health-memory">
+               <Button className="rounded-full px-6 shadow-xl shadow-primary/10 hover:scale-105 active:scale-95 transition-all">
+                 <Plus className="h-4 w-4 mr-2" /> New Record
+               </Button>
+             </Link>
+          </div>
         </div>
-        
-        <CardContent className="p-8 flex flex-col md:flex-row items-center gap-10">
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative h-36 w-36 flex items-center justify-center shrink-0">
-               <svg className="h-full w-full -rotate-90">
-                 <circle
-                   cx="72"
-                   cy="72"
-                   r="64"
-                   fill="none"
-                   stroke="currentColor"
-                   strokeWidth="10"
-                   className="text-indigo-100/50 dark:text-slate-800"
-                 />
-                 <circle
-                   cx="72"
-                   cy="72"
-                   r="64"
-                   fill="none"
-                   stroke="currentColor"
-                   strokeWidth="10"
-                   strokeDasharray={402}
-                   strokeDashoffset={402 - (data.continuumScore.score / 100) * 402}
-                   strokeLinecap="round"
-                   className="text-indigo-600 dark:text-indigo-400 transition-all duration-1000 ease-out drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]"
-                 />
-               </svg>
-               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                 <span className="text-4xl font-display font-bold text-indigo-950 dark:text-white">{data.continuumScore.score}</span>
-                 <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-300 tracking-[0.2em] uppercase">Score</span>
+
+        {/* The Nexus - Orbital Centerpiece */}
+        <div className="relative py-20 min-h-[600px] flex items-center justify-center">
+          
+          {/* Anatomical Silhouette (Shifted slightly up for better alignment) */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] dark:opacity-[0.07] pointer-events-none transition-opacity duration-1000 scale-[1.25] translate-y-16">
+            <BodyHeatmap 
+              heatData={{}} 
+              gender={user?.user_metadata?.gender === 'female' ? 'female' : 'male'} 
+              hideControls={true} 
+            />
+          </div>
+
+          {/* orbital Connectors (vessels) */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+             <div className="w-[400px] h-[1px] bg-gradient-to-r from-transparent via-primary/20 to-transparent -rotate-45" />
+             <div className="w-[400px] h-[1px] bg-gradient-to-r from-transparent via-accent/20 to-transparent rotate-45" />
+          </div>
+
+          {/* The Core Hub */}
+          <div className="relative z-20 group animate-in fade-in zoom-in duration-1000 will-change-transform">
+             <div className="absolute inset-x-0 inset-y-0 -m-8 border border-primary/5 rounded-full animate-pulse will-change-[opacity,transform]" />
+             <div className="absolute inset-x-0 inset-y-0 -m-16 border border-primary/2 rounded-full hidden md:block" />
+             
+             <div className="relative h-56 w-56 md:h-72 md:w-72 flex items-center justify-center rounded-full glass-premium nexus-glow border-white/10 shadow-3xl">
+                <div className="absolute inset-4 rounded-full border border-primary/10" />
+                <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 200 200">
+                     <circle
+                       cx="100"
+                       cy="100"
+                       r="90"
+                       fill="none"
+                       stroke="currentColor"
+                       strokeWidth="10"
+                       strokeDasharray="565.48"
+                       strokeDashoffset={565.48 - (data.continuumScore.score / 100) * 565.48}
+                       strokeLinecap="round"
+                       className="text-primary transition-all duration-[2000ms] ease-out shadow-lg"
+                     />
+                </svg>
+                <div className="flex flex-col items-center justify-center text-center px-6">
+                  <span className="text-6xl md:text-7xl font-display font-bold leading-none tracking-tighter">{data.continuumScore.score}</span>
+                  <span className="text-[10px] font-bold text-primary tracking-[0.4em] uppercase mt-4">Health Status</span>
+                  <Badge variant="outline" className="mt-4 bg-primary/5 text-[9px] font-bold uppercase tracking-widest border-primary/20 px-4">
+                    {data.continuumScore.status.replace('_', ' ')}
+                  </Badge>
+                </div>
+             </div>
+          </div>
+
+          {/* SATELLITE 1: Health Records (Left-Top Orbit) */}
+          <div className="absolute top-[10%] left-[5%] md:left-[15%] group animate-slide-up" style={{ animationDelay: '200ms' }}>
+             <Link to="/app/health-memory" className="block">
+               <div className="floating-blob w-32 h-32 md:w-40 md:h-40 flex flex-col items-center justify-center gap-2 text-center p-6 border-white/10 hover:border-primary/30 shadow-2xl transition-all hover:scale-110 active:scale-95">
+                  <Heart className="h-6 w-6 text-primary mb-2" />
+                  <div className="text-2xl font-display font-bold">{data.healthStats.totalEntries}</div>
+                  <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Records</div>
+                  <Badge className="text-[8px] bg-primary/20 text-primary border-none mt-1">Active</Badge>
                </div>
-            </div>
-            <div className="flex flex-col items-center">
-              <Badge className={`px-4 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase border-none shadow-sm ${
-                data.continuumScore.status === 'optimal' ? 'bg-emerald-500 text-white' : 
-                data.continuumScore.status === 'stable' ? 'bg-indigo-600 text-white' : 
-                'bg-amber-500 text-white'
-              }`}>
-                {data.continuumScore.status.replace('_', ' ')}
-              </Badge>
-            </div>
+             </Link>
           </div>
 
-          <div className="flex-1 space-y-6">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-display font-bold text-slate-900 dark:text-white">Continuum Score</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
-                Your holistic health index, dynamically calculated from symptoms, medication adherence, and sleep patterns.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-              {data.continuumScore.breakdown.map((item, i) => (
-                <div key={i} className="flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-slate-800/50 border border-indigo-100/50 dark:border-indigo-500/20 backdrop-blur-sm rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 shadow-sm transition-transform hover:-translate-y-0.5">
-                  {item.impact > 0 ? (
-                    <TrendingUp className="h-3.5 w-3.5 text-emerald-500 mr-0.5" />
-                  ) : item.impact < 0 ? (
-                    <TrendingDown className="h-3.5 w-3.5 text-rose-500 mr-0.5" />
-                  ) : (
-                    <Minus className="h-3.5 w-3.5 text-slate-400 mr-0.5" />
-                  )}
-                  {item.label}
-                </div>
-              ))}
-            </div>
+          {/* SATELLITE 2: Medical Spending (Right-Top Orbit) */}
+          <div className="absolute top-[15%] right-[5%] md:right-[15%] group animate-slide-up" style={{ animationDelay: '400ms' }}>
+             <Link to="/app/bill-explainer" className="block">
+               <div className="floating-blob w-32 h-32 md:w-36 md:h-36 flex flex-col items-center justify-center gap-2 text-center p-6 border-white/10 hover:border-accent/30 shadow-2xl transition-all hover:scale-110 active:scale-95" style={{ borderRadius: '60% 40% 30% 70% / 50% 30% 70% 50%' }}>
+                  <DollarSign className="h-6 w-6 text-accent mb-2" />
+                  <div className="text-xl font-display font-bold">₹{data.financialStats.thisMonthExpenses.toLocaleString()}</div>
+                  <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Spending</div>
+               </div>
+             </Link>
           </div>
 
-          <div className="shrink-0 flex flex-col items-center gap-3">
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl px-6 py-6 h-auto shadow-xl shadow-indigo-200 dark:shadow-none font-bold gap-2 group">
-              <Brain className="h-5 w-5 transition-transform group-hover:scale-110" />
-              Get Insights
-            </Button>
-            <p className="text-[10px] text-slate-400 font-medium">Updated 5 min ago</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stats Cards */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Health Entries */}
-        <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "100ms" }}>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Heart className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Health Entries
-              </h3>
-            </div>
-            <p className="font-display text-2xl font-semibold text-foreground">
-              {data.healthStats.totalEntries}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {data.healthStats.thisWeekEntries} this week
-            </p>
-            {data.healthStats.recentSymptoms.length > 0 && (
-              <div className="mt-2">
-                <p className="text-xs text-muted-foreground">Recent:</p>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {data.healthStats.recentSymptoms.slice(0, 3).map((symptom, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs">
-                      {symptom}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Mood Trend */}
-        <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "150ms" }}>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Brain className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Mood Trend
-              </h3>
-            </div>
-            <div className="flex items-center gap-2">
-              {getMoodIcon(data.healthStats.moodTrend)}
-              <p className="font-display text-2xl font-semibold text-foreground capitalize">
-                {data.healthStats.moodTrend}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">This week</p>
-          </CardContent>
-        </Card>
-
-        {/* Sleep Quality */}
-        <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "200ms" }}>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Moon className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Sleep Quality
-              </h3>
-            </div>
-            <p className="font-display text-2xl font-semibold text-foreground">
-              {data.healthStats.avgSleepHours}h
-            </p>
-            <p className="text-xs text-muted-foreground mt-1 capitalize">
-              {data.healthStats.avgSleepQuality} average
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Expenses */}
-        <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "250ms" }}>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <DollarSign className="h-4 w-4 text-accent" />
-              <h3 className="text-sm font-medium text-muted-foreground">
-                Expenses
-              </h3>
-            </div>
-            <p className="font-display text-2xl font-semibold text-foreground">
-              ₹{data.financialStats.totalExpenses.toLocaleString()}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              ₹{data.financialStats.thisMonthExpenses.toLocaleString()} this month
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Recent Activity */}
-        <div className="lg:col-span-2">
-          <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "300ms" }}>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-primary" />
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Recent Activity
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {data.recentActivity.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No recent activity. Start by adding health entries or uploading bills!
-                  </p>
-                ) : (
-                  data.recentActivity.map((activity, i) => (
-                    <div key={activity.id} className="flex items-start gap-3 group">
-                      <div className="mt-1.5 h-2 w-2 rounded-full bg-primary/40 group-hover:bg-primary transition-colors shrink-0" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge 
-                            variant="secondary" 
-                            className={`text-xs ${getActivityColor(activity.type)}`}
-                          >
-                            {getActivityIcon(activity.type)}
-                            <span className="ml-1">{activity.title}</span>
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">{activity.date}</span>
-                        </div>
-                        <p className="text-sm text-foreground">{activity.description}</p>
-                      </div>
+          {/* SATELLITE 3: AI Insights (Bottom Orbit) */}
+          <div className="absolute bottom-[0%] group animate-slide-up" style={{ animationDelay: '600ms' }}>
+             <Link to="/app/doctor-summaries" className="block">
+               <div className="glass-premium rounded-full px-8 py-3 flex items-center gap-4 border-white/10 hover:border-primary/40 shadow-xl transition-all hover:-translate-y-2 element-glow-subtle">
+                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                    <Brain className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-primary">Latest Insight</div>
+                    <div className="text-xs font-semibold max-w-[120px] md:max-w-xs truncate italic">
+                      {data.insightsStats.latestSummary?.summary || "Add records for AI insights"}
                     </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-primary/40 group-hover:translate-x-1 transition-transform" />
+               </div>
+             </Link>
+          </div>
+
         </div>
 
-        {/* Insights & Quick Actions */}
-        <div className="space-y-6">
-          {/* Latest Insights */}
-          {data.insightsStats.latestSummary && (
-            <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "350ms" }}>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-primary" />
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Latest Insights
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <p className="text-sm text-foreground leading-relaxed">
-                    {data.insightsStats.latestSummary.summary.length > 100 
-                      ? data.insightsStats.latestSummary.summary.substring(0, 100) + '...'
-                      : data.insightsStats.latestSummary.summary
-                    }
-                  </p>
-                  {data.insightsStats.latestSummary.insights.length > 0 && (
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Key Insights:</p>
-                      {data.insightsStats.latestSummary.insights.slice(0, 2).map((insight, i) => (
-                        <p key={i} className="text-xs bg-blue-50 text-blue-800 p-2 rounded">
-                          💡 {insight.length > 60 ? insight.substring(0, 60) + '...' : insight}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  <Link to="/app/doctor-summaries">
-                    <Button variant="outline" size="sm" className="w-full">
-                      View All Summaries
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+        {/* The Life-Spine (Timeline Thread) */}
+        <div className="py-8 animate-slide-up" style={{ animationDelay: '800ms' }}>
+          <div className="flex items-center justify-between mb-12 px-2">
+            <h3 className="font-display text-2xl font-bold">Life Thread</h3>
+            <div className="flex gap-2">
+              <span className="h-2 w-2 rounded-full bg-primary" />
+              <span className="h-2 w-2 rounded-full bg-accent" />
+              <span className="h-2 w-2 rounded-full bg-purple-400" />
+            </div>
+          </div>
 
-          {/* Quick Actions */}
-          <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "400ms" }}>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Plus className="h-4 w-4 text-primary" />
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Quick Actions
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Button variant="hero" size="sm" asChild className="w-full">
-                  <Link to="/app/health-memory" className="gap-2">
-                    <Plus className="h-3.5 w-3.5" /> Add Health Entry
-                  </Link>
-                </Button>
-                <Button variant="hero-outline" size="sm" asChild className="w-full">
-                  <Link to="/app/bill-explainer" className="gap-2">
-                    <FileUp className="h-3.5 w-3.5" /> Upload Bill
-                  </Link>
-                </Button>
-                {data.healthStats.totalEntries > 0 && (
-                  <Button variant="outline" size="sm" asChild className="w-full">
-                    <Link to="/app/health-memory" className="gap-2">
-                      <Brain className="h-3.5 w-3.5" /> Generate Summary
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top Categories */}
-          {data.financialStats.topCategories.length > 0 && (
-            <Card className="opacity-0 animate-fade-in" style={{ animationDelay: "450ms" }}>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-accent" />
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Top Categories
-                  </CardTitle>
+          <div className="relative pb-12">
+            {/* The Spine Line */}
+            <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-y-1/2" />
+            
+            <div className="flex justify-between items-center gap-4 overflow-x-auto pb-8 px-8 no-scrollbar">
+              {data.recentActivity.length === 0 ? (
+                <div className="w-full text-center py-10 text-muted-foreground italic text-[10px] uppercase tracking-widest">
+                  Initializing Life Thread...
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {data.financialStats.topCategories.map((category, i) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <span className="text-sm text-foreground">{category.category}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">₹{category.amount.toLocaleString()}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {Math.round(category.percentage)}%
-                        </Badge>
-                      </div>
+              ) : (
+                data.recentActivity.map((activity, i) => (
+                  <div key={activity.id} className="relative flex flex-col items-center shrink-0 min-w-[200px] group">
+                    <div className="text-[9px] font-bold text-muted-foreground uppercase mb-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {activity.date}
                     </div>
-                  ))}
+                    
+                    {/* Timeline Node */}
+                    <div className={`h-12 w-12 rounded-2xl flex items-center justify-center z-10 glass-premium transition-all group-hover:scale-125 group-hover:shadow-2xl ${
+                      activity.type === 'health' ? 'border-primary/40 shadow-primary/5 hover:border-primary' :
+                      activity.type === 'bill' ? 'border-accent/40 shadow-accent/5 hover:border-accent' :
+                      'border-purple-400/40 shadow-purple-400/5 hover:border-purple-400'
+                    }`}>
+                      {activity.type === 'health' ? <Heart className="h-5 w-5 text-primary" /> :
+                       activity.type === 'bill' ? <FileText className="h-5 w-5 text-accent" /> :
+                       <Brain className="h-5 w-5 text-purple-400" />}
+                    </div>
+
+                    <div className="mt-6 text-center">
+                      <div className="text-xs font-bold truncate max-w-[150px] mb-1">{activity.title}</div>
+                      <div className="text-[10px] text-muted-foreground truncate max-w-[150px]">{activity.description}</div>
+                    </div>
+
+                    {/* Connecting Bud */}
+                    <div className={`absolute top-1/2 -translate-y-1/2 h-2 w-2 rounded-full z-0 group-hover:scale-150 transition-all ${
+                      activity.type === 'health' ? 'bg-primary' :
+                      activity.type === 'bill' ? 'bg-accent' :
+                      'bg-purple-400'
+                    }`} />
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions / Nexus Bridges */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-6 animate-slide-up" style={{ animationDelay: '1000ms' }}>
+           {[
+             { label: 'Medications', icon: Zap, color: 'text-primary', link: '/app/medications' },
+             { label: 'Care Circle', icon: Shield, color: 'text-accent', link: '/app/guardians' },
+             { label: 'Passport', icon: FileText, color: 'text-purple-400', link: '/app/passport' },
+             { label: 'Insights', icon: Brain, color: 'text-blue-400', link: '/app/doctor-summaries' }
+           ].map((item, i) => (
+             <Link key={i} to={item.link} className="flex flex-col items-center gap-3 p-6 glass-premium rounded-[2rem] hover:bg-white/[0.05] transition-all group">
+                <div className={`h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center ${item.color} group-hover:scale-110 transition-transform`}>
+                  <item.icon className="h-5 w-5" />
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
+             </Link>
+           ))}
         </div>
       </div>
     </div>
