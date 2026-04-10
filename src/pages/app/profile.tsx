@@ -116,18 +116,7 @@ const ProfilePage = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20 pt-8">
       <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary/10 via-background to-accent/10 border border-primary/10 p-8 shadow-sm">
-        <div className="flex justify-end mb-6">
-          <Button
-            id="tour-profile-settings"
-            variant="outline"
-            size="icon"
-            className="rounded-xl bg-background/50 hover:bg-primary hover:text-white transition-all shadow-md border-primary/20"
-            onClick={() => navigate('/app/settings')}
-          >
-            <SettingsIcon className="h-4 w-4" />
-          </Button>
-        </div>
-
+        
         <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 border-t border-primary/5 pt-6 md:pt-0 md:border-t-0">
           <div className="h-28 w-28 rounded-3xl bg-primary flex items-center justify-center text-primary-foreground text-4xl font-bold shadow-2xl shadow-primary/20 ring-4 ring-background">
             {name.charAt(0).toUpperCase()}
@@ -191,8 +180,7 @@ const ProfilePage = () => {
                   <div className="space-y-1">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Blood Group</p>
                     <p className="text-lg font-bold text-red-600 flex items-center gap-2">
-                      {user?.user_metadata?.blood_type || "Unknown"}
-                      <Shield className="h-4 w-4" />
+                       {user?.user_metadata?.blood_type || "Unknown"}
                     </p>
                   </div>
                 </ProvenanceTrigger>

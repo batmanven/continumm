@@ -5,11 +5,14 @@ import { useProfile } from "@/contexts/ProfileContext";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/lib/supabase";
 import { passportService, HealthPassport } from "@/services/passportService";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Users, QrCode, Plus, User, Shield, AlertTriangle, Activity, Pencil, Trash2, Home, Heart, Search, Loader2, ShieldCheck, Copy } from "lucide-react";
+import { 
+  Users, QrCode, Plus, User, Shield, AlertTriangle, 
+  Activity, Pencil, Trash2, Heart, Search, Loader2, 
+  ShieldCheck, Copy, ExternalLink, Zap
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -19,7 +22,6 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Mail, Phone as PhoneIcon } from "lucide-react";
 
 const GuardiansDashboard = () => {
   const { user } = useSupabaseAuth();
@@ -113,7 +115,6 @@ const GuardiansDashboard = () => {
         if (error) throw error;
         toast.success("Profile updated successfully");
       } else {
-        // If it's a manual profile with an email, mark as invited
         const isInviting = !linkedUserId && newDepEmail;
         const finalPayload = {
           ...payload,
@@ -130,7 +131,6 @@ const GuardiansDashboard = () => {
         
         if (isInviting) {
           toast.success("Family member invited to Continuum!");
-          console.log("%c SIMULATED INVITE SENT TO: " + newDepEmail, "color: #3b82f6; font-weight: bold;");
         } else {
           toast.success(linkedUserId ? "Family member linked successfully!" : "Family member added successfully");
         }
@@ -192,7 +192,6 @@ const GuardiansDashboard = () => {
     const normalizedQuery = isEmail ? query.trim().toLowerCase() : query.replace(/[^\d+]/g, "");
 
     try {
-      // 1. Check 'profiles' table for the source of truth
       const lookupQuery = supabase.from('profiles').select('*');
       
       if (isEmail) {
@@ -206,8 +205,6 @@ const GuardiansDashboard = () => {
 
       if (profData) {
         setLinkedUserId(profData.id);
-        
-        // Populate potential data for confirmed step
         setNewDepName(profData.full_name || "");
         setNewDepDOB(profData.date_of_birth || "");
         setNewDepGender(profData.gender || "");
@@ -215,30 +212,23 @@ const GuardiansDashboard = () => {
         setNewDepPhone(profData.phone || "");
         setNewDepEmail(profData.email || "");
 
-        // --- REAL OTP LOGIC ---
         const randomCode = Math.floor(100000 + Math.random() * 900000).toString();
-        
-        // Save to DB
         const { error: otpError } = await supabase
           .from('connection_verifications')
           .insert({
             target_user_id: profData.id,
-            sender_user_id: user.id,
+            sender_user_id: user!.id,
             code: randomCode
           });
 
         if (otpError) throw otpError;
-        console.log("%c SECURITY OTP FOR " + profData.full_name, "color: #10b981; font-weight: bold; font-size: 14px;");
-        console.log("%c CODE: " + randomCode, "color: #10b981; font-weight: bold; border: 1px solid #10b981; padding: 4px;");
-
         toast.success(`Verification code requested for ${profData.full_name}`);
         setModalStep(2); 
       } else {
         toast.error("User not found on Continuum.");
       }
     } catch (e: any) {
-      console.error("Lookup failed:", e);
-      toast.error("Process failed. Please ensure the database table exists.");
+      toast.error("Process failed.");
     } finally {
       setIsVerifying(false);
     }
@@ -262,7 +252,6 @@ const GuardiansDashboard = () => {
       if (error) throw error;
 
       if (data) {
-        // Check if code is recent (last 15 mins)
         const fiveMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
         if (new Date(data.created_at) < fiveMinutesAgo) {
           toast.error("This code has expired. Please request a new one.");
@@ -284,7 +273,6 @@ const GuardiansDashboard = () => {
   const handleGeneratePassport = async (dependentId: string | null, name: string) => {
     if (!user) return;
     
-    // Get blood type for this profile
     let blood_type = "Not specified";
     if (!dependentId) {
        blood_type = user.user_metadata?.blood_type || "Not specified";
@@ -293,7 +281,6 @@ const GuardiansDashboard = () => {
        blood_type = dep?.blood_type || "Not specified";
     }
 
-    // Basic shared data bundle
     const sharedData = {
       name,
       owner_email: user.email,
@@ -309,17 +296,17 @@ const GuardiansDashboard = () => {
       emergency_notes: "Generated via Continuum Health • Dependent of " + (user.user_metadata?.name || user.email),
       blood_type,
       allergies: [],
-      medications: [] // Placeholder for Phase 3 integration
+      medications: []
     };
 
-    toast.loading("Generating Secure Passport...");
+    toast.loading("Generating Medical QR...");
     const { data, error } = await passportService.generatePassport(user.id, dependentId, sharedData);
     toast.dismiss();
 
     if (error || !data) {
-      toast.error(error || "Failed to generate passport");
+      toast.error(error || "Failed to generate Medical QR");
     } else {
-      toast.success("Emergency Health Passport generated!");
+      toast.success("Medical QR generated!");
       setPassports(prev => ({ ...prev, [dependentId || 'self']: data }));
       setViewToken(data.public_token);
     }
@@ -333,7 +320,7 @@ const GuardiansDashboard = () => {
       return;
     }
 
-    toast.loading("Synchronizing Passport...");
+    toast.loading("Updating Medical QR...");
     
     let blood_type = "Not specified";
     if (!id) {
@@ -358,7 +345,7 @@ const GuardiansDashboard = () => {
     if (error) {
       toast.error(error);
     } else {
-      toast.success("Passport synchronized with latest profile data!");
+      toast.success("Medical QR updated!");
       await loadPassports();
     }
   };
@@ -371,208 +358,247 @@ const GuardiansDashboard = () => {
     const isInvited = dependent?.invitation_status === 'sent';
 
     return (
-      <Card 
+      <div 
         key={id || 'self'} 
-        className={`transition-all duration-300 ${
-          isActive 
-            ? "border-primary ring-2 ring-primary/20 shadow-lg shadow-primary/5 bg-primary/5 dark:bg-primary/10 scale-[1.02]" 
-            : "border-border/60 hover:border-primary/20"
-        }`}
+        className={`group relative transition-all duration-500 animate-slide-up`}
       >
-        <CardHeader className="pb-3 border-b border-border/40 bg-muted/20">
+        <div className={`floating-blob p-6 h-full flex flex-col gap-6 border-white/5 transition-all shadow-xl ${
+          isActive 
+            ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20 scale-[1.02]" 
+            : "hover:border-primary/20 hover:-translate-y-1"
+        }`}>
           <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2 text-foreground">
-                <User className="h-5 w-5 text-muted-foreground" />
-                {name}
-                {isInvited && (
-                  <Badge variant="outline" className="text-[9px] border-blue-500/30 text-blue-500 bg-blue-500/5 animate-pulse ml-1">
-                    Invite Sent
+            <div className="flex items-center gap-4">
+              <div className={`h-12 w-12 rounded-full flex items-center justify-center border transition-colors ${
+                isActive ? "border-primary bg-primary/20 text-primary" : "border-white/10 bg-white/5 text-muted-foreground group-hover:border-primary/40"
+              }`}>
+                <User className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-bold group-hover:text-primary transition-colors flex items-center gap-2">
+                  {name}
+                  {isInvited && <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />}
+                </h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-widest bg-white/5 border-white/5">
+                    {relationship}
                   </Badge>
-                )}
-              </CardTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="secondary" className="px-1.5 py-0 h-5 text-[10px] uppercase font-bold tracking-wider">{relationship}</Badge>
-                {id && (
-                   <div className="flex gap-1">
-                     <button 
-                        onClick={() => handleEditClick(dependents.find(d => d.id === id))}
-                        className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                        title="Edit Profile"
-                     >
-                       <Pencil className="h-3.5 w-3.5" />
-                     </button>
-                     <button 
-                        onClick={() => handleDeleteDependent(id)}
-                        className="p-1 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                        title="Delete Profile"
-                     >
-                       <Trash2 className="h-3.5 w-3.5" />
-                     </button>
-                   </div>
-                )}
+                  {isInvited && <span className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Invited</span>}
+                </div>
               </div>
             </div>
             {isActive && (
-              <Badge variant="default" className="bg-primary text-primary-foreground animate-pulse shadow-sm h-5 px-1.5 text-[10px] uppercase font-bold tracking-wider">
+              <Badge variant="default" className="bg-primary text-primary-foreground h-5 px-1.5 text-[9px] uppercase font-bold tracking-widest">
                 Active
               </Badge>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="pt-4 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Manage records, symptoms, and active medication lists when you switch to this profile.
-          </p>
-          
-          <div className="pt-2 border-t border-border/40">
-            <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-              <QrCode className="h-4 w-4" />
-              Emergency Access Passport
-            </h4>
-            
-            {passport ? (
-              <div className="flex flex-col gap-3">
-                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground max-w-[150px] truncate">
-                    Active Link: {passportLink}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-8 px-2 hover:bg-primary/10 hover:text-primary border-primary/20"
-                      onClick={() => {
-                        navigator.clipboard.writeText(passportLink);
-                        toast.success("Link copied to clipboard!");
-                      }}
-                      title="Copy Link"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-8" onClick={() => setViewToken(passport.public_token)}>
-                      View QR
-                    </Button>
-                  </div>
+
+          <div className="flex-1 space-y-4">
+            <p className="text-[11px] text-muted-foreground leading-relaxed italic">
+              Health Nexus access for record synchronization and emergency medical profiling.
+            </p>
+
+            {/* Emergency Seal Area */}
+            <div className={`p-4 rounded-2xl border transition-all ${
+              passport ? 'bg-primary/5 border-primary/20' : 'bg-amber-500/5 border-amber-500/20'
+            }`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Shield className={`h-3 w-3 ${passport ? 'text-primary' : 'text-amber-500'}`} />
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${passport ? 'text-primary' : 'text-amber-500'}`}>
+                    {passport ? 'Medical QR Active' : 'Medical QR Missing'}
+                  </span>
                 </div>
+                {passport && (
+                  <button 
+                    onClick={() => handleUpdatePassport(id, name)}
+                    className="p-1 rounded-md hover:bg-white/10 text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Activity className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {passport ? (
+                <div className="flex gap-2 mt-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="flex-1 h-8 rounded-lg text-[9px] font-bold uppercase tracking-widest border border-white/5 hover:bg-white/10"
+                    onClick={() => setViewToken(passport.public_token)}
+                  >
+                    <QrCode className="h-3 w-3 mr-1.5" /> View Medical QR
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 w-8 p-0 rounded-lg border border-white/5 hover:bg-white/10"
+                    onClick={() => {
+                      navigator.clipboard.writeText(passportLink);
+                      toast.success("Link copied!");
+                    }}
+                  >
+                    <Copy className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-[9px] text-amber-500/80 leading-relaxed italic">
+                    Critical allergies and meds will be hidden from first responders.
+                  </p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full h-8 rounded-lg text-[9px] font-bold uppercase tracking-widest bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border-none"
+                    onClick={() => handleGeneratePassport(id, name)}
+                  >
+                    Generate Seal
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
+            {id && (
+              <div className="flex gap-1">
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  className="w-full text-xs h-8 text-muted-foreground hover:text-primary flex items-center gap-2 border border-dashed border-border/60"
-                  onClick={() => handleUpdatePassport(id, name)}
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-white/5"
+                  onClick={() => handleEditClick(dependent)}
                 >
-                  <Activity className="h-3 w-3" />
-                  Sync Latest Profile Data
+                  <Pencil className="h-3.5 w-3.5" />
                 </Button>
-              </div>
-            ) : (
-              <div className="p-3 bg-amber-500/10 dark:bg-amber-500/5 rounded-lg flex flex-col gap-3 border border-amber-500/20">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5" />
-                  <p className="text-xs text-amber-600/90 dark:text-amber-500/80 leading-relaxed">
-                    No emergency passport generated. Paramedics cannot view allergies or meds if incapacitated.
-                  </p>
-                </div>
                 <Button 
-                  variant="outline" 
+                  variant="ghost" 
                   size="sm" 
-                  className="bg-background border-amber-500/20 text-amber-600 hover:bg-amber-500/10"
-                  onClick={() => handleGeneratePassport(id, name)}
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                  onClick={() => handleDeleteDependent(id)}
                 >
-                  Generate Passport
+                  <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             )}
+            {!isActive && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-[9px] font-bold uppercase tracking-widest h-8 px-4 border border-white/5 hover:bg-primary hover:text-white transition-all ml-auto"
+                onClick={() => { /* Profile context switching logic is handled by context provider auto-detecting route */ }}
+              >
+                Switch Profile <ExternalLink className="h-3 w-3 ml-1.5" />
+              </Button>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center justify-between opacity-0 animate-fade-in">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-foreground flex items-center gap-2">
-            <Users className="h-6 w-6 text-primary" />
-            Continuum Guardians
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your family's profiles and emergency health passports.
-          </p>
-        </div>
-        <Button id="tour-guard-add" onClick={() => setShowAddModal(true)} className="gap-2 rounded-xl shadow-lg shadow-primary/10">
-          <Plus className="h-4 w-4" />
-          Add Dependent
-        </Button>
+    <div className="relative min-h-screen pb-20">
+      {/* Immersive Background Layer */}
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+        <div 
+          className="absolute inset-0 opacity-[0.04] blur-[80px] scale-125 animate-drift will-change-transform"
+          style={{ 
+            backgroundImage: "url('/dashboard-bg.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+        />
+        <div className="absolute inset-0 bg-mesh opacity-10" />
       </div>
 
-      <div id="tour-guard-cards" className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-0 animate-fade-in" style={{ animationDelay: "100ms" }}>
-        {renderProfileCard(null, user?.user_metadata?.name || 'Self', "Primary User")}
-        {dependents.map(dep => renderProfileCard(dep.id, dep.name, dep.relationship))}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+        {/* Clinical Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 py-8 animate-slide-up">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-[10px] font-bold tracking-[0.3em] text-primary uppercase mb-2">
+              <Users className="h-3 w-3 fill-primary" />
+              Care Circle
+            </div>
+            <h1 className="font-display text-3xl font-bold tracking-tight">
+              Family & <span className="text-primary">Care Circle</span>
+            </h1>
+            <p className="text-muted-foreground text-sm font-medium max-w-lg">
+              Authorized members sharing the Continuum health network. Manage emergency seals and profile access.
+            </p>
+          </div>
+
+          <Button id="tour-guard-add" onClick={() => setShowAddModal(true)} className="rounded-full px-6 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all hover:scale-105">
+            <Plus className="h-4 w-4 mr-2" /> Add Member
+          </Button>
+        </div>
+
+        <div id="tour-guard-cards" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-4">
+          {renderProfileCard(null, user?.user_metadata?.name || 'Self', "Primary User")}
+          {dependents.map(dep => renderProfileCard(dep.id, dep.name, dep.relationship))}
+        </div>
       </div>
 
       <Dialog open={showAddModal} onOpenChange={handleCloseModal}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-2xl border-none shadow-2xl">
-          <div className="grid md:grid-cols-5 min-h-[400px]">
+        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-[2.5rem] border-white/10 shadow-2xl glass-premium">
+          <div className="grid md:grid-cols-5 min-h-[500px]">
             {/* Sidebar/Info Column */}
-            <div className="md:col-span-2 bg-primary p-6 text-primary-foreground hidden md:flex flex-col justify-between">
-              <div>
-                <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center mb-4">
-                  <Heart className="h-5 w-5 text-white" />
+            <div className="md:col-span-2 bg-primary p-8 text-primary-foreground hidden md:flex flex-col justify-between relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 blur-[100px] -mr-32 -mt-32" />
+              <div className="relative z-10">
+                <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center mb-6">
+                  <Heart className="h-6 w-6 text-white" />
                 </div>
-                <h2 className="text-xl font-bold mb-2">
-                  {editingId ? "Update Profile" : "Expand Your Circle"}
+                <h2 className="text-2xl font-bold tracking-tight mb-4 leading-tight">
+                  {editingId ? "Profile Details" : "Expand Your Constellation"}
                 </h2>
-                <p className="text-primary-foreground/70 text-xs leading-relaxed">
-                  Manage records, track medications, and generate a life-saving Emergency Passport for your loved ones.
+                <p className="text-white/70 text-sm leading-relaxed font-medium">
+                  Isolated health profiles allow private record keeping while sharing a single emergency context.
                 </p>
               </div>
-              <div className="space-y-3 opacity-80">
-                <div className="flex items-center gap-2 text-xs">
-                  <div className="h-1 w-1 rounded-full bg-white animate-pulse" />
-                  Profile-specific data isolation
+              <div className="space-y-4 opacity-80 relative z-10">
+                <div className="flex items-center gap-3 text-xs font-bold tracking-widest uppercase">
+                  <ShieldCheck className="h-4 w-4" />
+                  Isolated Storage
                 </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <div className="h-1 w-1 rounded-full bg-white/50" />
-                  QR-based paramedic access
+                <div className="flex items-center gap-3 text-xs font-bold tracking-widest uppercase">
+                  <Zap className="h-4 w-4" />
+                  Instant Sync
                 </div>
               </div>
             </div>
 
             {/* Form Column */}
-            <div className="md:col-span-3 bg-card p-6 md:p-8 overflow-y-auto max-h-[90vh]">
-               <DialogHeader className="mb-6">
-                  <div className="flex items-center justify-between">
-                    <DialogTitle className="text-xl font-bold text-foreground">
-                      {editingId ? "Edit Family Member" : (
-                        modalStep === 0 ? "Add Family Member" :
-                        modalStep === 1 ? "Connect Account" :
-                        modalStep === 2 ? "Verify Connection" : "Confirm Details"
-                      )}
-                    </DialogTitle>
-                    {modalStep > 0 && !editingId && (
-                      <Button variant="ghost" size="sm" onClick={() => setModalStep(modalStep - 1)} className="text-xs h-7">
-                         Back
-                      </Button>
+            <div className="md:col-span-3 p-8 md:p-10 overflow-y-auto max-h-[90vh]">
+               <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xl font-display font-bold text-foreground">
+                    {editingId ? "Edit Family Member" : (
+                      modalStep === 0 ? "Guide" :
+                      modalStep === 1 ? "Connect Account" :
+                      modalStep === 2 ? "Verify Connection" : "Confirm Node Details"
                     )}
-                  </div>
-                </DialogHeader>
+                  </h3>
+                  {modalStep > 0 && !editingId && (
+                    <Button variant="ghost" size="sm" onClick={() => setModalStep(modalStep - 1)} className="text-[10px] font-bold uppercase tracking-widest h-7 px-3 bg-white/5">
+                       Back
+                    </Button>
+                  )}
+               </div>
 
                 {modalStep === 0 && !editingId && (
-                  <div className="space-y-4 py-4">
+                  <div className="grid gap-4 py-4 animate-slide-up">
                     <button 
                       id="tour-guard-connect-btn"
                       onClick={() => setModalStep(1)}
-                      className="w-full p-4 rounded-2xl border-2 border-primary/10 hover:border-primary/40 bg-primary/5 hover:bg-primary/10 transition-all text-left group"
+                      className="w-full p-6 h-32 rounded-3xl border border-white/5 bg-white/5 hover:bg-primary/10 hover:border-primary/30 transition-all text-left group"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                          <Users className="h-5 w-5" />
+                      <div className="flex items-center gap-6">
+                        <div className="h-14 w-14 rounded-2xl bg-white/5 text-muted-foreground flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
+                          <Users className="h-6 w-6" />
                         </div>
                         <div>
-                          <h3 className="font-bold text-foreground">Connect Existing User</h3>
-                          <p className="text-xs text-muted-foreground">Find them on Continuum using Email or Phone</p>
+                          <h3 className="font-bold text-lg leading-none mb-1 group-hover:text-primary">Connect User</h3>
+                          <p className="text-xs text-muted-foreground italic font-medium">Link an existing Continuum account</p>
                         </div>
                       </div>
                     </button>
@@ -580,15 +606,15 @@ const GuardiansDashboard = () => {
                     <button 
                       id="tour-guard-manual-btn"
                       onClick={() => setModalStep(3)}
-                      className="w-full p-4 rounded-2xl border-2 border-border/40 hover:border-primary/40 bg-muted/20 hover:bg-primary/5 transition-all text-left group"
+                      className="w-full p-6 h-32 rounded-3xl border border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-left group"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-xl bg-muted text-muted-foreground flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                          <Pencil className="h-5 w-5" />
+                      <div className="flex items-center gap-6">
+                        <div className="h-14 w-14 rounded-2xl bg-white/5 text-muted-foreground flex items-center justify-center group-hover:bg-white/10 transition-all shadow-inner">
+                          <Pencil className="h-6 w-6" />
                         </div>
                         <div>
-                          <h3 className="font-bold text-foreground">Create Manual Profile</h3>
-                          <p className="text-xs text-muted-foreground">Enter details manually for record keeping</p>
+                          <h3 className="font-bold text-lg leading-none mb-1">Manual Profile</h3>
+                          <p className="text-xs text-muted-foreground italic font-medium">Create isolated node for local records</p>
                         </div>
                       </div>
                     </button>
@@ -596,123 +622,107 @@ const GuardiansDashboard = () => {
                 )}
 
                 {modalStep === 1 && (
-                  <div className="space-y-6 py-6">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold uppercase tracking-wider opacity-60">Search Member</Label>
+                  <div className="space-y-8 py-4 animate-slide-up">
+                    <div className="space-y-4">
+                      <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Member Lookup</Label>
                       <div className="relative">
-                        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Search className="absolute left-4 top-4 h-4 w-4 text-muted-foreground" />
                         <Input 
                           placeholder="Email or Phone Number" 
                           value={searchQuery}
                           onChange={e => setSearchQuery(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleMemberLookup(searchQuery)}
-                          className="pl-10 h-10 rounded-xl bg-muted/30 text-sm"
+                          className="pl-12 h-12 rounded-2xl bg-white/5 border-white/10 focus:border-primary/50 text-sm font-medium"
                         />
-                      </div>
-                      <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-start gap-3">
-                        <div className="mt-0.5 h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
-                           <Activity className="h-2.5 w-2.5 text-primary" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[11px] font-semibold text-primary/80 leading-none">Search Tip</p>
-                          <p className="text-[10px] text-muted-foreground leading-relaxed">
-                            Search for existing members using their verification email or phone (e.g., +91... or simply digits). We'll send them a secure OTP for connection.
-                          </p>
-                        </div>
                       </div>
                     </div>
                     
                     <Button 
-                      className="w-full h-11 rounded-xl font-bold bg-primary"
+                      className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-[10px] bg-primary shadow-xl shadow-primary/20"
                       onClick={() => handleMemberLookup(searchQuery)}
                       disabled={!searchQuery || isVerifying}
                     >
                       {isVerifying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
-                      Find Member
+                      Initialize Search
                     </Button>
                   </div>
                 )}
 
                 {modalStep === 2 && (
-                  <div className="space-y-6 py-6 text-center">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-2">
-                       <ShieldCheck className="h-6 w-6" />
+                  <div className="space-y-8 py-4 text-center animate-slide-up">
+                    <div className="h-16 w-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto ring-8 ring-primary/5">
+                       <ShieldCheck className="h-8 w-8" />
                     </div>
                     <div className="space-y-2">
-                      <h3 className="font-bold text-foreground">Security Verification</h3>
-                      <p className="text-sm text-muted-foreground">
-                        We found a match! For privacy, we've sent an OTP to the member. Please enter it below to confirm connection.
+                      <h3 className="font-bold text-lg leading-none">Identity Verification</h3>
+                      <p className="text-xs text-muted-foreground font-medium italic">
+                        Node found. Protocol requires OTP confirmation for data linkage.
                       </p>
                     </div>
 
-                    <div className="max-w-[240px] mx-auto">
+                    <div className="max-w-[260px] mx-auto">
                       <Input 
-                        placeholder="6-digit code" 
+                        placeholder="6-DIGIT CODE" 
                         value={otpCode}
                         onChange={e => setOtpCode(e.target.value)}
-                        className="h-12 text-center text-xl font-bold tracking-[0.5em] rounded-xl"
+                        className="h-14 text-center text-2xl font-bold tracking-[0.5em] rounded-2xl bg-white/5 border-white/10"
                         maxLength={6}
                       />
                     </div>
 
-                    <div className="space-y-3 pt-2">
-                      <Button 
-                        className="w-full h-11 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700"
-                        onClick={() => handleVerifyOtp()}
-                        disabled={otpCode.length < 4}
-                      >
-                        Verify & Link Account
-                      </Button>
-                      <p className="text-[10px] text-muted-foreground">
-                        Don't have a code? <button className="text-primary hover:underline" onClick={() => handleMemberLookup(searchQuery)}>Resend Code</button>
-                      </p>
-                    </div>
+                    <Button 
+                      className="w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-[10px] bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-500/20"
+                      onClick={() => handleVerifyOtp()}
+                      disabled={otpCode.length < 4}
+                    >
+                      Verify & Establish Link
+                    </Button>
                   </div>
                 )}
 
                 {(modalStep === 3 || editingId) && (
-                  <form onSubmit={handleAddDependent} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                      <div className="col-span-2 space-y-1">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider opacity-60 ml-0.5">Full Name</Label>
+                  <form onSubmit={handleAddDependent} className="space-y-6 py-4 animate-slide-up">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2 space-y-2">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Full Legal Name</Label>
                         <Input 
                           required 
                           value={newDepName} 
                           onChange={e => setNewDepName(e.target.value)} 
                           placeholder="Jane Doe" 
-                          className="h-10 rounded-xl bg-muted/30 focus:bg-card transition-colors text-sm"
+                          className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium"
                         />
                       </div>
                       
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider opacity-60 ml-0.5">Relationship</Label>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Relationship</Label>
                         <Input 
                           required 
                           value={newDepRel} 
                           onChange={e => setNewDepRel(e.target.value)} 
-                          placeholder="Child, Parent, etc." 
-                          className="h-10 rounded-xl bg-muted/30 text-sm"
+                          placeholder="Spouse, Child..." 
+                          className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium"
                         />
                       </div>
 
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider opacity-60 ml-0.5">Date of Birth</Label>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">DOB</Label>
                         <Input 
                           required 
                           type="date" 
                           value={newDepDOB} 
                           onChange={e => setNewDepDOB(e.target.value)} 
-                          className="h-10 rounded-xl bg-muted/30 text-sm"
+                          className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium"
                         />
                       </div>
 
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider opacity-60 ml-0.5">Gender</Label>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Gender</Label>
                         <Select value={newDepGender} onValueChange={setNewDepGender} required>
-                          <SelectTrigger className="h-10 rounded-xl bg-muted/30 text-sm">
-                            <SelectValue placeholder="Selection" />
+                          <SelectTrigger className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium">
+                            <SelectValue placeholder="Protocol" />
                           </SelectTrigger>
-                          <SelectContent className="rounded-xl">
+                          <SelectContent className="glass-premium border-white/10 rounded-2xl">
                             <SelectItem value="male">Male</SelectItem>
                             <SelectItem value="female">Female</SelectItem>
                             <SelectItem value="other">Other</SelectItem>
@@ -720,51 +730,51 @@ const GuardiansDashboard = () => {
                         </Select>
                       </div>
 
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider opacity-60 ml-0.5">Email (Optional)</Label>
-                        <Input 
-                          type="email" 
-                          value={newDepEmail} 
-                          onChange={e => setNewDepEmail(e.target.value)} 
-                          placeholder="jane@example.com" 
-                          className="h-10 rounded-xl bg-muted/30 text-sm"
-                        />
-                      </div>
-
                       <div className="space-y-2">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider opacity-60 ml-0.5">Phone Number</Label>
-                        <Input 
-                          value={newDepPhone} 
-                          onChange={e => setNewDepPhone(e.target.value)} 
-                          placeholder="+91..." 
-                          className="h-10 rounded-xl bg-muted/30 text-sm"
-                        />
-                      </div>
-
-                      <div className="col-span-2 space-y-2">
-                        <Label className="text-[10px] font-bold uppercase tracking-wider opacity-60 ml-0.5 flex items-center justify-between">
-                          Blood Group
-                          <span className="text-[9px] text-red-500 font-black tracking-tighter">MANDATORY</span>
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 flex justify-between">
+                          Blood Type
+                          <span className="text-red-500 italic opacity-60">Required</span>
                         </Label>
                         <Select value={newDepBlood} onValueChange={setNewDepBlood} required>
-                          <SelectTrigger className="h-10 rounded-xl bg-muted/30 text-sm">
-                            <SelectValue placeholder="Select blood group" />
+                          <SelectTrigger className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium">
+                            <SelectValue placeholder="Nexus-A/B/O" />
                           </SelectTrigger>
-                          <SelectContent className="rounded-xl">
+                          <SelectContent className="glass-premium border-white/10 rounded-2xl">
                             {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
                               <SelectItem key={bg} value={bg}>{bg}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Email</Label>
+                        <Input 
+                          type="email" 
+                          value={newDepEmail} 
+                          onChange={e => setNewDepEmail(e.target.value)} 
+                          placeholder="jane@nexus.link" 
+                          className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Secure Phone</Label>
+                        <Input 
+                          value={newDepPhone} 
+                          onChange={e => setNewDepPhone(e.target.value)} 
+                          placeholder="+91..." 
+                          className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium"
+                        />
+                      </div>
                     </div>
 
-                    <div className="flex gap-3 pt-4">
-                      <Button type="button" variant="outline" onClick={handleCloseModal} className="flex-1 rounded-xl h-11 font-bold">
+                    <div className="flex gap-4 pt-6">
+                      <Button type="button" variant="outline" onClick={handleCloseModal} className="flex-1 rounded-2xl h-12 font-bold border-white/10">
                         Cancel
                       </Button>
-                      <Button type="submit" className="flex-1 rounded-xl h-11 font-bold shadow-lg shadow-primary/20 bg-primary">
-                        {editingId ? "Update Member" : (linkedUserId ? "Connect Member" : "Create Profile")}
+                      <Button type="submit" className="flex-1 rounded-2xl h-12 font-bold bg-primary shadow-xl shadow-primary/20">
+                        {editingId ? "Update Member" : "Commit to Nexus"}
                       </Button>
                     </div>
                   </form>
@@ -775,29 +785,41 @@ const GuardiansDashboard = () => {
       </Dialog>
 
       <Dialog open={!!viewToken} onOpenChange={() => setViewToken(null)}>
-        <DialogContent className="sm:max-w-md flex flex-col items-center pt-8">
-          <DialogHeader className="text-center w-full">
-            <DialogTitle className="text-center w-full">Emergency Health Passport</DialogTitle>
+        <DialogContent className="max-w-md flex flex-col items-center pt-8 glass-premium border-white/10 rounded-[3rem] p-10">
+          <DialogHeader className="text-center w-full mb-6">
+            <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-4 border border-white/10">
+              <Shield className="h-6 w-6 text-primary" />
+            </div>
+            <DialogTitle className="text-2xl font-display font-bold tracking-tight text-center w-full">Emergency Seal</DialogTitle>
+            <p className="text-xs text-muted-foreground font-medium italic mt-2">
+              Paramedic bypass for critical medical data.
+            </p>
           </DialogHeader>
-          <div className="bg-white p-4 rounded-xl shadow-sm border mt-4">
-            {viewToken && (
-              <QRCodeSVG 
-                value={`${window.location.origin}/passport/${viewToken}`}
-                size={220}
-                level="H"
-                includeMargin={true}
-              />
-            )}
+          <div className="relative p-6 bg-white rounded-[2rem] shadow-2xl border-white/10 group">
+            <div className="absolute inset-0 bg-primary/5 blur-xl group-hover:bg-primary/10 transition-colors" />
+            <div className="relative z-10">
+              {viewToken && (
+                <QRCodeSVG 
+                  value={`${window.location.origin}/passport/${viewToken}`}
+                  size={200}
+                  level="H"
+                  includeMargin={false}
+                  className="rounded-xl"
+                />
+              )}
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground text-center mt-4">
-            First responders can scan this code to bypass authentication and view critical allergies, conditions, and emergency contacts.
-          </p>
-          <Button variant="outline" className="mt-4 w-full" onClick={() => {
-            navigator.clipboard.writeText(`${window.location.origin}/passport/${viewToken}`);
-            toast.success("Link copied to clipboard!");
-          }}>
-            Copy Link
-          </Button>
+          <div className="w-full space-y-4 mt-10">
+            <Button variant="outline" className="w-full rounded-2xl h-12 border-white/10 font-bold uppercase tracking-widest text-[10px]" onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/passport/${viewToken}`);
+              toast.success("Seal link copied!");
+            }}>
+              <Copy className="h-4 w-4 mr-2" /> Copy Access Link
+            </Button>
+            <Button variant="ghost" className="w-full h-12 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-white" onClick={() => setViewToken(null)}>
+              Close Access
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
