@@ -21,7 +21,7 @@ const Dashboard = () => {
             <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
             <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
           </div>
-          <span className="text-sm font-medium animate-pulse text-primary/60">Aligning Health Nexus...</span>
+          <span className="text-sm font-medium animate-pulse text-primary/60">Syncing health data...</span>
         </div>
       </div>
     );
@@ -65,7 +65,7 @@ const Dashboard = () => {
           <div>
             <div className="flex items-center gap-2 text-[10px] font-bold tracking-[0.3em] text-primary uppercase mb-2">
               <Zap className="h-3 w-3 fill-primary" />
-              Health Nexus
+              Health Overview
             </div>
             <h1 className="font-display text-3xl font-bold tracking-tight">
               Welcome back, <span className="text-gradient">{userName.split(' ')[0]}</span>
@@ -74,7 +74,11 @@ const Dashboard = () => {
 
           <div className="flex items-center gap-4">
              {!isProfileComplete && (
-               <Link to="/app/settings" className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-600 uppercase tracking-tighter hover:bg-amber-500/20 transition-all">
+               <Link 
+                 id="tour-dashboard-completion"
+                 to="/app/settings" 
+                 className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-600 uppercase tracking-tighter hover:bg-amber-500/20 transition-all"
+               >
                  <Shield className="h-3 w-3" /> Complete Your Profile
                </Link>
              )}
@@ -89,8 +93,8 @@ const Dashboard = () => {
         {/* The Nexus - Orbital Centerpiece */}
         <div className="relative py-20 min-h-[600px] flex items-center justify-center">
           
-          {/* Anatomical Silhouette (Shifted slightly up for better alignment) */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] dark:opacity-[0.07] pointer-events-none transition-opacity duration-1000 scale-[1.25] translate-y-16">
+          {/* Anatomical Silhouette (Enhanced visibility for light mode) */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-[0.15] dark:opacity-[0.07] pointer-events-none transition-opacity duration-1000 scale-[1.25] translate-y-16">
             <BodyHeatmap 
               heatData={{}} 
               gender={user?.user_metadata?.gender === 'female' ? 'female' : 'male'} 
@@ -109,7 +113,7 @@ const Dashboard = () => {
              <div className="absolute inset-x-0 inset-y-0 -m-8 border border-primary/5 rounded-full animate-pulse will-change-[opacity,transform]" />
              <div className="absolute inset-x-0 inset-y-0 -m-16 border border-primary/2 rounded-full hidden md:block" />
              
-             <div className="relative h-56 w-56 md:h-72 md:w-72 flex items-center justify-center rounded-full glass-premium nexus-glow border-white/10 shadow-3xl">
+             <div id="tour-dashboard-score" className="relative h-56 w-56 md:h-72 md:w-72 flex items-center justify-center rounded-full glass-premium nexus-glow border-white/10 shadow-3xl">
                 <div className="absolute inset-4 rounded-full border border-primary/10" />
                 <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 200 200">
                      <circle
@@ -234,7 +238,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Quick Actions / Nexus Bridges */}
+        {/* Quick Links */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-6 animate-slide-up" style={{ animationDelay: '1000ms' }}>
            {[
              { label: 'Medications', icon: Zap, color: 'text-primary', link: '/app/medications' },

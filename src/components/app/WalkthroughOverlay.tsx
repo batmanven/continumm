@@ -73,9 +73,19 @@ const TOUR_SECTIONS: TourSection[] = [
         popover: {
           title: "👤 Profile Switcher",
           description:
-            "Switch between <strong>your own profile</strong> and any <strong>dependents</strong> you manage (children, parents, etc). All data across the entire app is automatically scoped to whoever is selected here.",
+            "Switch between <strong>your own profile</strong> and any <strong>family members</strong> you manage. All data across the app is automatically updated to the selected person.",
           side: "bottom",
           align: "start",
+        },
+      },
+      {
+        element: "#tour-sidebar-trigger",
+        popover: {
+          title: "↔️ Sidebar Toggle",
+          description:
+            "Need more space? Use this button to <strong>expand or collapse</strong> the side menu at any time.",
+          side: "right",
+          align: "center",
         },
       },
       {
@@ -83,7 +93,7 @@ const TOUR_SECTIONS: TourSection[] = [
         popover: {
           title: "🌙 Theme Toggle",
           description:
-            "Switch between <strong>Light</strong> and <strong>Dark</strong> mode instantly. Your preference is remembered across sessions.",
+            "Switch between <strong>Light</strong> and <strong>Dark</strong> mode instantly. We'll remember your choice for next time.",
           side: "bottom",
           align: "start",
         },
@@ -198,9 +208,9 @@ const TOUR_SECTIONS: TourSection[] = [
       {
         element: "#tour-guard-cards",
         popover: {
-          title: "🛡️ Emergency Health Passports",
+          title: "🛡️ Medical QR Codes",
           description:
-            "Generate QR-based <strong>Medical Passports</strong> for any profile. First responders can instantly access critical info — even if you or your dependent are incapacitated.",
+            "Create <strong>Medical QR codes</strong> for any profile. First responders can instantly access critical info — even if you or your family member are incapacitated.",
           side: "top",
           align: "center",
         },
@@ -329,9 +339,9 @@ const TOUR_SECTIONS: TourSection[] = [
       {
         element: "#tour-bill-insurance",
         popover: {
-          title: "⚙️ Custom Cost Calculation",
+          title: "⚙️ Insurance Settings",
           description:
-            "Configure your specific insurance rules to get highly accurate out-of-pocket estimates before analyzing a bill.",
+            "Configure your specific plan parameters to get highly accurate out-of-pocket estimates before analyzing a bill.",
           side: "bottom",
           align: "end",
         },
@@ -440,9 +450,9 @@ const TOUR_SECTIONS: TourSection[] = [
       {
         element: "#tour-sc-heatmap",
         popover: {
-          title: "🔥 Clinical Heatmap",
+          title: "🔥 Health Map",
           description:
-            "Visualize your pain points on an <strong>interactive anatomical model</strong>. Deeper red zones indicate chronic issues.",
+            "Visualize your pain points on an <strong>interactive model</strong>. Deeper red zones indicate areas that need attention.",
           side: "right",
           align: "center",
         },
@@ -495,12 +505,12 @@ const TOUR_SECTIONS: TourSection[] = [
         },
       },
       {
-        element: "#tour-profile-settings",
+        element: "#tour-nav-settings", // Now in Sidebar Footer
         popover: {
           title: "⚙️ Management Mode",
           description:
-            "Need to make changes? Use the <strong>Settings Gear</strong> to switch to Editing Mode and update your medical credentials.",
-          side: "left",
+            "Need to make changes? Use the <strong>Settings Gear</strong> in the sidebar to switch to Editing Mode and update your medical credentials.",
+          side: "right",
           align: "start",
         },
       },
@@ -774,11 +784,14 @@ export function WalkthroughOverlay() {
         nextBtnText: "Next →",
         prevBtnText: "← Back",
         popoverClass: "continuum-tour-popover",
-        stagePadding: 10,
+        stagePadding: 14,
         stageRadius: 12,
         overlayColor: "rgba(0, 0, 0, 0.85)",
         steps: allSteps,
 
+        onHighlightStarted: (element) => {
+          element?.scrollIntoView({ behavior: "smooth", block: "center" });
+        },
         onNextClick: () => {
           const current = driverObj.getActiveIndex() ?? -1;
           moveToStep(current + 1);

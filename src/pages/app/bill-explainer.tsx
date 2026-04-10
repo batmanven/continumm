@@ -2,26 +2,12 @@ import { useState, useRef, ChangeEvent, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Upload,
-  FileText,
-  IndianRupee,
-  Shield,
-  AlertCircle,
-  Loader2,
-  CheckCircle,
-  XCircle,
-  Calendar,
-  Building,
-  User,
-  Settings,
-  ShieldCheck,
-  PiggyBank,
-  Scale,
-  Handshake,
-  ArrowRight
+  Upload, FileText, IndianRupee, Shield, AlertCircle, Loader2,
+  CheckCircle, XCircle, Calendar, Building, User, Settings,
+  ShieldCheck, PiggyBank, Scale, Handshake, ArrowRight, Zap,
+  Search, ShieldAlert, Sparkles, Receipt
 } from "lucide-react";
 import { useBillProcessor } from "@/hooks/useBillProcessor";
 import { BillData } from "@/services/billProcessor";
@@ -29,7 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-
 
 const BillExplainer = () => {
   const [billText, setBillText] = useState("");
@@ -104,25 +89,6 @@ const BillExplainer = () => {
     }
   };
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const file = event.dataTransfer.files[0];
-    if (file) {
-      setSelectedFile(file);
-      if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
-        file.text().then(text => {
-          setBillText(text);
-        });
-      } else {
-        setBillText("");
-      }
-    }
-  };
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-  };
-
   const handleProcess = async () => {
     await processBill(billText, selectedFile || undefined);
   };
@@ -141,214 +107,188 @@ const BillExplainer = () => {
 
   const getProcessingMessage = () => {
     switch (processingStage) {
-      case 'extracting':
-        return 'Extracting text from image...';
-      case 'processing':
-        return 'Processing bill with AI...';
-      default:
-        return 'Processing...';
+      case 'extracting': return 'OCR extraction in progress...';
+      case 'processing': return 'Deciphering clinical codes...';
+      default: return 'Processing Ledger...';
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="animate-fade-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-2xl font-semibold text-foreground">
-              {isViewMode ? "Bill Details" : "Bill Explainer"}
+    <div className="relative min-h-screen pb-20">
+      {/* Immersive Background Layer */}
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+        <div 
+          className="absolute inset-0 opacity-[0.04] blur-[80px] scale-125 animate-drift will-change-transform"
+          style={{ 
+            backgroundImage: "url('/dashboard-bg.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+        />
+        <div className="absolute inset-0 bg-mesh opacity-10" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+        {/* Clinical Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 py-8 animate-slide-up">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-[10px] font-bold tracking-[0.3em] text-amber-500 uppercase mb-2">
+              <Receipt className="h-3 w-3 fill-amber-500" />
+              Bill Analysis
+            </div>
+            <h1 className="font-display text-3xl font-bold tracking-tight">
+              Clinical <span className="text-amber-500">Details</span>
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="text-muted-foreground text-sm font-medium max-w-lg">
               {isViewMode 
-                ? "View your previously processed medical bill" 
-                : "Understand your medical bills in plain language"
+                ? "History of itemized clinical expenses and insurance reconciliations." 
+                : "Translate cryptic medical billing into plain-language health expenditures."
               }
             </p>
           </div>
-          <div className="flex gap-2">
-            <Dialog open={showSettings} onOpenChange={setShowSettings}>
+
+          <div className="flex gap-3">
+             <Dialog open={showSettings} onOpenChange={setShowSettings}>
               <DialogTrigger asChild>
-                <Button id="tour-bill-insurance" variant="outline" className="gap-2">
-                  <ShieldCheck className="h-4 w-4" />
-                  Insurance Settings
+                <Button id="tour-bill-insurance" variant="outline" className="rounded-full px-6 border-amber-500/20 hover:bg-amber-500/5 text-[10px] font-bold uppercase tracking-widest transition-all">
+                  <ShieldCheck className="h-3.5 w-3.5 mr-2" /> Insurance Settings
                 </Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Estimated Insurance Coverage</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  {/*
-                    Tour anchors: these ids are used by WalkthroughOverlay to position
-                    the guided tour popover directly on the relevant form section —
-                    same pattern as #tour-guard-connect-btn / #tour-guard-manual-btn.
-                  */}
-                  <div id="tour-insurance-deductible-copay" className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Deductible Remaining (₹)</Label>
-                      <Input 
-                        type="number" 
-                        value={insuranceSettings.deductibleRemaining} 
-                        onChange={(e) => setInsuranceSettings({...insuranceSettings, deductibleRemaining: Number(e.target.value)})}
-                      />
-                      <p className="text-xs text-muted-foreground">Amount you must pay out-of-pocket before insurance kicks in.</p>
+              <DialogContent className="glass-premium border-white/10 rounded-[2.5rem] p-10 max-w-2xl">
+                 <DialogHeader className="mb-8">
+                   <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4 border border-white/10">
+                     <Shield className="h-6 w-6 text-amber-500" />
+                   </div>
+                   <DialogTitle className="text-2xl font-display font-bold tracking-tight">Insurance Settings</DialogTitle>
+                   <p className="text-xs text-muted-foreground italic font-medium mt-1">Configure your plan parameters for settlement simulation.</p>
+                 </DialogHeader>
+                 
+                 <div className="space-y-8">
+                    <div className="grid grid-cols-2 gap-12">
+                      <div id="tour-insurance-deductible-copay" className="space-y-6">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Deductible (₹)</Label>
+                          <Input type="number" value={insuranceSettings.deductibleRemaining} onChange={(e) => setInsuranceSettings({...insuranceSettings, deductibleRemaining: Number(e.target.value)})} className="h-12 rounded-2xl bg-white/5 border-white/10" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Copay Ratio (%)</Label>
+                          <Input type="number" min="0" max="100" value={insuranceSettings.copayPercentage} onChange={(e) => setInsuranceSettings({...insuranceSettings, copayPercentage: Number(e.target.value)})} className="h-12 rounded-2xl bg-white/5 border-white/10" />
+                        </div>
+                      </div>
+
+                      <div id="tour-insurance-categories" className="space-y-3">
+                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Inclusive Categories</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {['consultation', 'tests', 'procedures', 'medicine', 'other'].map(cat => (
+                            <Badge 
+                              key={cat}
+                              variant="outline"
+                              className={`cursor-pointer capitalize text-[10px] font-bold px-3 py-1 rounded-full transition-all ${insuranceSettings.coveredCategories.includes(cat) ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' : 'bg-white/5 border-white/5 opacity-40'}`}
+                              onClick={() => toggleCategory(cat)}
+                            >
+                              {cat}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Standard Copay / Coinsurace (%)</Label>
-                      <Input 
-                        type="number" 
-                        min="0" max="100"
-                        value={insuranceSettings.copayPercentage} 
-                        onChange={(e) => setInsuranceSettings({...insuranceSettings, copayPercentage: Number(e.target.value)})}
-                      />
-                      <p className="text-xs text-muted-foreground">Percentage of costs you pay after deductible.</p>
-                    </div>
-                  </div>
-                  <div id="tour-insurance-categories" className="space-y-2 pt-2">
-                    <Label>Covered Categories</Label>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {['consultation', 'tests', 'procedures', 'medicine', 'other'].map(cat => (
-                        <Badge 
-                          key={cat}
-                          variant={insuranceSettings.coveredCategories.includes(cat) ? 'default' : 'outline'}
-                          className="cursor-pointer capitalize"
-                          onClick={() => toggleCategory(cat)}
-                        >
-                          {cat}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+
+                    <Button onClick={() => setShowSettings(false)} className="w-full h-12 rounded-2xl bg-amber-600 hover:bg-amber-700 font-bold uppercase tracking-widest text-[10px]">
+                       Commit Configuration
+                    </Button>
+                 </div>
               </DialogContent>
             </Dialog>
             {isViewMode && (
-              <Button variant="outline" onClick={() => navigate("/app/previous-bills")}>
-                ← Back to Bills
+              <Button variant="ghost" className="rounded-full px-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground" onClick={() => navigate("/app/previous-bills")}>
+                Return to History
               </Button>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Show view mode data immediately */}
-      {isViewMode && viewBillData ? (
-        <BillResultDisplay result={viewBillData} onReset={handleReset} isViewMode={true} insuranceSettings={insuranceSettings} />
-      ) : (
-        <>
-          {!result ? (
-            <div
-              className="rounded-2xl border border-border/50 bg-card p-8 shadow-soft text-center animate-fade-in"
-              style={{ animationDelay: "100ms" }}
-            >
-              <div className="mx-auto max-w-md">
-                <div className="mx-auto h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-5">
-                  <Upload className="h-7 w-7 text-primary" />
-                </div>
-                <h3 className="font-display text-lg font-semibold text-foreground mb-2">
-                  Upload or paste your bill
-                </h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  AI will analyze and structure your medical bill data
-                  {selectedFile?.type.startsWith('image/') && ' (OCR will extract text from image)'}
-                </p>
+        {isViewMode && viewBillData ? (
+          <BillResultDisplay result={viewBillData} onReset={handleReset} isViewMode={true} insuranceSettings={insuranceSettings} />
+        ) : (
+          <div className="grid lg:grid-cols-12 gap-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
+            {!result ? (
+               <div className="lg:col-span-12">
+                  <div className="glass-premium p-10 rounded-[3rem] border-white/5 shadow-2xl overflow-hidden relative group">
+                    <div className="absolute inset-0 bg-amber-500/[0.02] -z-10 group-hover:bg-amber-500/[0.05] transition-colors" />
+                    
+                    <div className="flex flex-col md:flex-row gap-12 items-center">
+                       {/* Dropzone */}
+                       <div className="flex-1 w-full space-y-6">
+                         <div 
+                           id="tour-bill-dropzone"
+                           className="relative h-64 w-full rounded-[2.5rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-8 group/drop transition-all hover:border-amber-500/30 hover:bg-amber-500/5 cursor-pointer"
+                           onClick={() => fileInputRef.current?.click()}
+                         >
+                           <div className="h-16 w-16 rounded-3xl bg-white/5 flex items-center justify-center mb-4 group-hover/drop:scale-110 group-hover/drop:bg-amber-500/10 transition-all">
+                              <Upload className="h-7 w-7 text-muted-foreground group-hover/drop:text-amber-500" />
+                           </div>
+                           <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground group-hover/drop:text-amber-500">
+                             {selectedFile ? selectedFile.name : "Scan Your Bill"}
+                           </h3>
+                           <p className="text-[10px] text-muted-foreground/60 italic font-medium mt-2">
+                             Drag & Drop PDF or itemized images
+                           </p>
+                           <input ref={fileInputRef} type="file" accept=".txt,.pdf,.jpg,.jpeg,.png" onChange={handleFileSelect} className="hidden" />
+                         </div>
 
-                <div 
-                  id="tour-bill-dropzone"
-                  className="border-2 border-dashed border-border rounded-xl p-8 mb-4 hover:border-primary/30 transition-colors cursor-pointer"
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <FileText className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Drop file here (PDF, image, or text)
-                    {selectedFile?.type.startsWith('image/') && (
-                      <span className="block text-xs text-primary mt-1">
-                        Image detected - OCR will extract text automatically
-                      </span>
-                    )}
-                  </p>
-                  {selectedFile && (
-                    <p className="text-xs text-primary mt-2">
-                      Selected: {selectedFile.name}
-                    </p>
-                  )}
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".txt,.pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
+                         {error && (
+                           <div className="p-4 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center gap-3">
+                             <AlertCircle className="h-4 w-4 text-red-500" />
+                             <span className="text-[10px] font-bold uppercase tracking-widest text-red-500">{error}</span>
+                           </div>
+                         )}
+                         
+                         <Button
+                           variant="hero"
+                           onClick={handleProcess}
+                           disabled={isProcessing || (!billText.trim() && !selectedFile)}
+                           className="w-full h-14 rounded-2xl bg-amber-600 hover:bg-amber-700 shadow-xl shadow-amber-500/20 gap-3 font-bold uppercase tracking-widest text-[10px]"
+                         >
+                           {isProcessing ? (
+                             <><Loader2 className="h-4 w-4 animate-spin" /> {getProcessingMessage()}</>
+                           ) : (
+                             <><Sparkles className="h-4 w-4" /> Analyze Bill</>
+                           )}
+                         </Button>
+                       </div>
 
-                <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border" />
-                  </div>
-                  <div className="relative flex justify-center">
-                    <span className="bg-card px-3 text-xs text-muted-foreground">
-                      or paste text
-                    </span>
-                  </div>
-                </div>
-
-                <Textarea
-                  id="tour-bill-textarea"
-                  placeholder="Paste your medical bill text here…"
-                  value={billText}
-                  onChange={(e) => setBillText(e.target.value)}
-                  className="min-h-[120px] mb-4"
-                />
-
-                {error && (
-                  <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                    <div className="flex items-center gap-2">
-                      <XCircle className="h-4 w-4 text-destructive" />
-                      <span className="text-sm text-destructive">{error}</span>
+                       {/* Textarea Area */}
+                       <div className="flex-1 w-full space-y-4">
+                          <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-2">Manual Transcription</label>
+                          <Textarea
+                            id="tour-bill-textarea"
+                            placeholder="Paste raw clinical transcription here…"
+                            value={billText}
+                            onChange={(e) => setBillText(e.target.value)}
+                            className="min-h-[250px] rounded-3xl bg-white/5 border-white/10 focus:ring-amber-500/20 resize-none font-mono text-xs p-6"
+                          />
+                       </div>
                     </div>
                   </div>
-                )}
-
-                <Button
-                  variant="hero"
-                  onClick={handleProcess}
-                  disabled={isProcessing || (!billText.trim() && !selectedFile)}
-                  className="w-full gap-2"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {getProcessingMessage()}
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4" />
-                      {selectedFile?.type.startsWith('image/') ? 'Extract & Explain Bill' : 'Explain Bill'}
-                    </>
-                  )}
-                </Button>
+               </div>
+            ) : (
+              <div className="lg:col-span-12">
+                <BillResultDisplay result={result} onReset={handleReset} insuranceSettings={insuranceSettings} />
               </div>
-            </div>
-          ) : (
-            <BillResultDisplay result={result} onReset={handleReset} insuranceSettings={insuranceSettings} />
-          )}
-        </>
-      )}
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-
 const BillResultDisplay = ({ result, onReset, isViewMode = false, insuranceSettings }: { result: any; onReset: () => void; isViewMode?: boolean; insuranceSettings: any }) => {
   const data = result.structured_data as BillData;
 
-  // Calculate Insurance Coverage
   const calculateInsurance = () => {
     let deductibleRemaining = insuranceSettings.deductibleRemaining;
     const copayFactor = insuranceSettings.copayPercentage / 100;
-    
     let totalCoveredByInsurance = 0;
     let totalPatientResponsibility = 0;
 
@@ -356,7 +296,6 @@ const BillResultDisplay = ({ result, onReset, isViewMode = false, insuranceSetti
       const amount = Number(amountStr);
       if (insuranceSettings.coveredCategories.includes(category.toLowerCase())) {
         let amountAfterDeductible = amount;
-        
         if (deductibleRemaining > 0) {
           if (deductibleRemaining >= amount) {
              totalPatientResponsibility += amount;
@@ -368,10 +307,8 @@ const BillResultDisplay = ({ result, onReset, isViewMode = false, insuranceSetti
              deductibleRemaining = 0;
           }
         }
-        
         const patientCopay = amountAfterDeductible * copayFactor;
         const insurancePays = amountAfterDeductible - patientCopay;
-        
         totalPatientResponsibility += patientCopay;
         totalCoveredByInsurance += insurancePays;
       } else {
@@ -379,10 +316,7 @@ const BillResultDisplay = ({ result, onReset, isViewMode = false, insuranceSetti
       }
     });
 
-    return {
-      insurance: totalCoveredByInsurance,
-      patient: totalPatientResponsibility
-    };
+    return { insurance: totalCoveredByInsurance, patient: totalPatientResponsibility };
   };
 
   const est = calculateInsurance();
@@ -394,278 +328,161 @@ const BillResultDisplay = ({ result, onReset, isViewMode = false, insuranceSetti
     const patient = data.patientName || "[Patient Name]";
     const date = data.date || "[Date]";
     const total = data.totalAmount || 0;
-    
     const issuesList = data.anomalies?.map(a => `- ${a}`).join('\n') || "- Unexpected high cost for specific line items compared to average market rates.";
-    
-    const letter = `
-Subject: Formal Dispute of Medical Bill - ${patient} - ${date}
-
-To the Billing Department at ${hospital},
-
-I am writing to formally dispute the bill received for services on ${date} (Total Amount: ₹${total.toLocaleString()}).
-
-Upon review using healthcare advocacy analysis, the following discrepancies were identified:
-${issuesList}
-
-I request a detailed, itemized statement (using CPT and HCPCS codes) and a secondary review of these charges to ensure they align with standard fair market rates and that no "upcoding" or unbundling errors occurred.
-
-Please place this account on hold and provide a written response within 30 days.
-
-Sincerely,
-${patient}
-    `.trim();
-
-    setDisputeLetter(letter);
-    setShowDisputeLetter(true);
+    const letter = `Subject: Formal Dispute of Medical Bill - ${patient} - ${date}\n\nTo the Billing Department at ${hospital},\n\nI am writing to formally dispute the bill received for services on ${date} (Total Amount: ₹${total.toLocaleString()}).\n\nUpon review using healthcare advocacy analysis, the following discrepancies were identified:\n${issuesList}\n\nI request a detailed, itemized statement (using CPT and HCPCS codes) and a secondary review of these charges to ensure they align with standard fair market rates and that no "upcoding" or unbundling errors occurred.\n\nPlease place this account on hold and provide a written response within 30 days.\n\nSincerely,\n${patient}`.trim();
+    setDisputeLetter(letter); setShowDisputeLetter(true);
   };
 
   return (
-    <div className="space-y-4 opacity-0 animate-fade-in">
-      {/* Summary Cards */}
-      <div className="grid sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <IndianRupee className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Total Cost
-              </span>
-            </div>
-            <p className="font-display text-2xl font-semibold text-foreground">
-              ₹{data.totalAmount?.toLocaleString() || 0}
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="h-4 w-4 text-primary" />
-              <span className="text-sm text-muted-foreground">
-                Line Items
-              </span>
-            </div>
-            <p className="font-display text-2xl font-semibold text-foreground">
-              {data.lineItems?.length || 0}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertCircle className="h-4 w-4 text-accent" />
-              <span className="text-sm text-muted-foreground">
-                Confidence
-              </span>
-            </div>
-            <p className="font-display text-2xl font-semibold text-foreground">
-              {Math.round((data.confidence || 0.7) * 100)}%
-            </p>
-          </CardContent>
-        </Card>
+    <div className="space-y-8 animate-slide-up">
+      {/* Overview Ledger */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Amount', val: `₹${(data.totalAmount || 0).toLocaleString()}`, icon: IndianRupee, color: 'text-amber-500' },
+          { label: 'Patient Liability', val: `₹${Math.round(est.patient).toLocaleString()}`, icon: User, color: 'text-rose-500' },
+          { label: 'Insurance Proxy', val: `₹${Math.round(est.insurance).toLocaleString()}`, icon: ShieldCheck, color: 'text-emerald-500' },
+          { label: 'Clinical Items', val: data.lineItems?.length || 0, icon: FileText, color: 'text-blue-500' }
+        ].map((stat, i) => (
+          <div key={i} className="glass-premium p-6 rounded-3xl border-white/5 flex flex-col gap-2">
+             <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest text-muted-foreground">
+                <stat.icon className={`h-3 w-3 ${stat.color}`} />
+                {stat.label}
+             </div>
+             <p className="text-2xl font-display font-bold font-mono tracking-tight">{stat.val}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Patient Advocate Card */}
-      <Card id="tour-bill-advocate" className="border-indigo-200 bg-gradient-to-br from-indigo-50 to-white overflow-hidden relative group">
-        <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
-          <Scale className="h-24 w-24" />
-        </div>
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="h-16 w-16 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-               <ShieldCheck className="h-8 w-8" />
-            </div>
-            <div className="flex-1 space-y-2 text-center md:text-left">
-               <h3 className="font-bold text-lg text-indigo-950 flex items-center justify-center md:justify-start gap-2">
-                 The Patient Advocate
-                 <Badge className="bg-indigo-600 text-[10px] h-4">AI Active</Badge>
-               </h3>
-               <p className="text-sm text-indigo-800/80">
-                 Our AI compared your bill against regional market averages. We detected <strong>{data.anomalies?.length || 1} potential billing errors</strong> or high-cost items that could be negotiated.
-               </p>
-               <div className="flex flex-wrap gap-2 justify-center md:justify-start pt-1">
-                 <Badge variant="outline" className="text-[10px] bg-white">No-Upcoding Check: Passing</Badge>
-                 <Badge variant="outline" className="text-[10px] bg-white border-amber-200 text-amber-700">Cost Variance: +15% vs Avg</Badge>
-               </div>
-            </div>
-            <Button onClick={generateDisputeLetter} className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-lg shadow-indigo-200">
-               <PiggyBank className="h-4 w-4" /> Generate Dispute Letter
-            </Button>
+      <div className="grid lg:grid-cols-12 gap-8">
+        {/* Left Column: Details */}
+        <div className="lg:col-span-8 space-y-8">
+          
+          {/* Itemized Ledger */}
+          <div className="glass-premium rounded-[2.5rem] border-white/5 overflow-hidden">
+             <div className="p-8 border-b border-white/5 flex items-center justify-between">
+                <h3 className="text-[10px] font-bold uppercase tracking-[.3em] text-amber-500">Itemized Clinical Ledger</h3>
+                <Badge variant="outline" className="rounded-full bg-white/5 text-[9px] font-bold tracking-widest uppercase">
+                   Verified {Math.round((data.confidence || 0.7) * 100)}%
+                </Badge>
+             </div>
+             <div className="p-8 space-y-4">
+                {data.lineItems?.map((item, i) => (
+                  <div key={i} className="flex items-center justify-between group p-3 rounded-2xl transition-all hover:bg-white/5 border border-transparent hover:border-white/5">
+                     <div className="space-y-1">
+                        <p className="text-sm font-bold tracking-tight">{item.item}</p>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase">Qty: {item.quantity} • Clinical Category</p>
+                     </div>
+                     <p className="text-sm font-mono font-bold">₹{item.cost.toLocaleString()}</p>
+                  </div>
+                ))}
+             </div>
+             <div className="p-8 bg-white/[0.02] border-t border-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Statement Total</span>
+                <span className="text-xl font-mono font-bold text-amber-500">₹{(data.totalAmount || 0).toLocaleString()}</span>
+             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Dispute Letter Dialog */}
+          {/* Hospital Context */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div className="glass-premium p-6 rounded-[2rem] border-white/5 flex items-center gap-4">
+                <div className="h-10 w-10 rounded-2xl bg-white/5 flex items-center justify-center text-muted-foreground">
+                   <Building className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Provider</p>
+                  <p className="text-sm font-bold">{data.hospitalName || "Unidentified Clinic"}</p>
+                </div>
+             </div>
+             <div className="glass-premium p-6 rounded-[2rem] border-white/5 flex items-center gap-4">
+                <div className="h-10 w-10 rounded-2xl bg-white/5 flex items-center justify-center text-muted-foreground">
+                   <Calendar className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Service Date</p>
+                  <p className="text-sm font-bold">{data.date || "N/A"}</p>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Right Column: Advocate & Actions */}
+        <div className="lg:col-span-4 space-y-8">
+           
+           {/* Advocate Card */}
+           <div className="glass-premium p-8 rounded-[3rem] border-amber-500/20 bg-amber-500/[0.02] relative overflow-hidden group">
+              <div className="absolute top-0 right-0 h-32 w-32 bg-amber-500/10 blur-3xl -mr-16 -mt-16 group-hover:bg-amber-500/20 transition-all pointer-events-none" />
+              <div className="space-y-6 relative z-10">
+                 <div className="h-12 w-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                    <ShieldCheck className="h-6 w-6" />
+                 </div>
+                 <div className="space-y-2">
+                    <h3 className="text-xl font-display font-bold tracking-tight">Health Advocate</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed italic font-medium">
+                       Auditing ledger items against regional pricing benchmarks.
+                    </p>
+                 </div>
+                 
+                 {data.anomalies && data.anomalies.length > 0 ? (
+                    <div className="space-y-3">
+                       {data.anomalies.map((a, i) => (
+                         <div key={i} className="flex gap-3 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 animate-pulse">
+                            <ShieldAlert className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                            <p className="text-[9px] font-bold text-rose-500 leading-normal uppercase">{a}</p>
+                         </div>
+                       ))}
+                    </div>
+                 ) : (
+                    <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex gap-3">
+                       <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+                       <p className="text-[9px] font-bold text-emerald-500 leading-normal uppercase">Standard Pricing Detected</p>
+                    </div>
+                 )}
+
+                 <Button onClick={generateDisputeLetter} className="w-full h-12 rounded-2xl bg-amber-600 hover:bg-amber-700 font-bold uppercase tracking-widest text-[9px]">
+                    Deploy Dispute Letter
+                 </Button>
+              </div>
+           </div>
+
+           {/* Category Map */}
+           <div className="glass-premium p-6 rounded-[2.5rem] border-white/5 space-y-4">
+              <h4 className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-2">Category Reconcile</h4>
+              <div className="space-y-3">
+                {Object.entries(data.categoryBreakdown || {}).map(([category, amount]) => (
+                  <div key={category} className="flex items-center justify-between px-3">
+                      <span className="text-[10px] font-bold capitalize text-muted-foreground">{category}</span>
+                      <span className="text-xs font-mono font-bold tracking-tight">₹{Number(amount).toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+           </div>
+
+           <Button variant="ghost" className="w-full h-14 rounded-3xl text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground hover:text-white bg-white/5" onClick={onReset}>
+              {isViewMode ? 'Exit History' : 'Scan New Ledger'}
+           </Button>
+        </div>
+      </div>
+
       <Dialog open={showDisputeLetter} onOpenChange={setShowDisputeLetter}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Handshake className="h-5 w-5 text-indigo-600" />
-              Medical Billing Dispute Letter
-            </DialogTitle>
+        <DialogContent className="glass-premium border-white/10 rounded-[3rem] p-10 max-w-2xl shadow-3xl">
+          <DialogHeader className="mb-6">
+            <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4 border border-white/10">
+              <Handshake className="h-6 w-6 text-amber-500" />
+            </div>
+            <DialogTitle className="text-2xl font-display font-bold tracking-tight">Bill Dispute</DialogTitle>
           </DialogHeader>
-          <div className="bg-muted p-4 rounded-lg text-sm font-mono whitespace-pre-wrap mt-2 max-h-[400px] overflow-y-auto border">
+          <div className="bg-white/5 p-6 rounded-[2rem] text-xs font-mono whitespace-pre-wrap mt-2 max-h-[400px] overflow-y-auto border border-white/10 leading-relaxed custom-scrollbar">
             {disputeLetter}
           </div>
-          <div className="flex gap-3 justify-end mt-4">
-             <Button variant="outline" onClick={() => {
+          <div className="flex gap-4 mt-8">
+             <Button variant="outline" className="flex-1 h-12 rounded-2xl border-white/10 font-bold text-[10px] uppercase tracking-widest" onClick={() => {
                 navigator.clipboard.writeText(disputeLetter);
-                toast.success("Letter copied to clipboard!");
-             }}>Copy to Clipboard</Button>
-             <Button className="bg-indigo-600" onClick={() => setShowDisputeLetter(false)}>Close</Button>
+                toast.success("Letter copied!");
+             }}>Copy Protocol</Button>
+             <Button className="flex-1 h-12 rounded-2xl bg-amber-600 hover:bg-amber-700 font-bold text-[10px] uppercase tracking-widest" onClick={() => setShowDisputeLetter(false)}>Acknowledge</Button>
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Insurance Breakdown */}
-      <Card className="border-blue-200 bg-blue-50/50">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg flex items-center gap-2 text-blue-900">
-            <ShieldCheck className="h-5 w-5" />
-            Estimated Insurance Coverage
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex w-full h-8 rounded-full overflow-hidden border border-blue-100">
-              <div 
-                className="bg-blue-500 flex items-center justify-center text-xs font-bold text-white transition-all" 
-                style={{ width: `${(est.insurance / (data.totalAmount || 1)) * 100}%` }}
-              >
-                {est.insurance > 0 && `₹${Math.round(est.insurance).toLocaleString()}`}
-              </div>
-              <div 
-                className="bg-amber-500 flex items-center justify-center text-xs font-bold text-white transition-all"
-                style={{ width: `${(est.patient / (data.totalAmount || 1)) * 100}%` }}
-              >
-                {est.patient > 0 && `₹${Math.round(est.patient).toLocaleString()}`}
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="flex items-start gap-2">
-                 <div className="w-3 h-3 rounded-full bg-blue-500 mt-1 shrink-0" />
-                 <div>
-                    <p className="font-semibold text-blue-900">Insurance Covers</p>
-                    <p className="text-muted-foreground">₹{Math.round(est.insurance).toLocaleString()}</p>
-                 </div>
-              </div>
-              <div className="flex items-start gap-2">
-                 <div className="w-3 h-3 rounded-full bg-amber-500 mt-1 shrink-0" />
-                 <div>
-                    <p className="font-semibold text-amber-900">You Pay</p>
-                    <p className="text-muted-foreground">₹{Math.round(est.patient).toLocaleString()}</p>
-                 </div>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Based on your settings: {insuranceSettings.copayPercentage}% copay
-              {insuranceSettings.deductibleRemaining > 0 && ` and ₹${insuranceSettings.deductibleRemaining} remaining deductible`}.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Patient & Hospital Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Bill Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="flex items-center gap-3">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Patient Name</p>
-                <p className="text-sm font-medium">{data.patientName || "Not found"}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Building className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Hospital</p>
-                <p className="text-sm font-medium">{data.hospitalName || "Not found"}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-xs text-muted-foreground">Date</p>
-                <p className="text-sm font-medium">{data.date || "Not found"}</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Line Items */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Detailed Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {data.lineItems?.map((item, i) => (
-              <div key={i} className="rounded-xl bg-secondary/30 p-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-foreground">
-                    {item.item}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="secondary">Qty: {item.quantity}</Badge>
-                    <span className="text-sm font-semibold text-foreground">
-                      ₹{item.cost.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )) || (
-              <p className="text-sm text-muted-foreground">No line items found</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Category Breakdown */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Category Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(data.categoryBreakdown || {}).map(([category, amount]) => (
-              <div key={category} className="text-center p-3 rounded-lg bg-secondary/20">
-                <p className="text-xs text-muted-foreground capitalize">{category}</p>
-                <p className="text-lg font-semibold">₹{Number(amount).toLocaleString()}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Anomalies */}
-      {data.anomalies && data.anomalies.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg text-orange-600">Anomalies Detected</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {data.anomalies.map((anomaly, i) => (
-                <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-orange-50 dark:bg-orange-950/20">
-                  <AlertCircle className="h-4 w-4 text-orange-600" />
-                  <span className="text-sm text-orange-800 dark:text-orange-200">{anomaly}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Button variant="outline" onClick={onReset} className="w-full">
-        {isViewMode ? 'Back to Bills' : 'Process Another Bill'}
-      </Button>
     </div>
   );
 };
