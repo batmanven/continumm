@@ -13,7 +13,6 @@ import PublicPassport from "./pages/passport";
 import AppLayout from "./components/app/AppLayout";
 import NotFound from "./pages/not-found";
 import Dashboard from "./pages/app/dashboard";
-import PreviousBills from "./pages/app/previous-bills";
 import DoctorSummaries from "./pages/app/doctor-summaries";
 import SettingsPage from "./pages/app/settings";
 import GuardiansDashboard from "./pages/app/guardians";
@@ -41,7 +40,6 @@ const App = () => (
               <Route index element={<Dashboard />} />
               <Route path="health-memory" element={<HealthMemory />} />
               <Route path="bill-explainer" element={<BillExplainer />} />
-              <Route path="previous-bills" element={<PreviousBills />} />
               <Route path="doctor-summaries" element={<DoctorSummaries />} />
               <Route path="symptom-checker" element={<SymptomChecker />} />
               <Route path="medications" element={<MedicationsDashboard />} />

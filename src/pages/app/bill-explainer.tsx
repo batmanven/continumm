@@ -7,7 +7,7 @@ import {
   Upload, FileText, IndianRupee, Shield, AlertCircle, Loader2,
   CheckCircle, XCircle, Calendar, Building, User, Settings,
   ShieldCheck, PiggyBank, Scale, Handshake, ArrowRight, Zap,
-  Search, ShieldAlert, Sparkles, Receipt
+  Search, ShieldAlert, Sparkles, Receipt, Trash2
 } from "lucide-react";
 import { useBillProcessor } from "@/hooks/useBillProcessor";
 import { BillData } from "@/services/billProcessor";
@@ -15,6 +15,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { billService, BillRecord } from "@/services/billService";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { useProfile } from "@/contexts/ProfileContext";
 
 const BillExplainer = () => {
   const [billText, setBillText] = useState("");
@@ -36,6 +40,59 @@ const BillExplainer = () => {
   });
 
   const [showSettings, setShowSettings] = useState(false);
+  const [activeTab, setActiveTab] = useState<'scanner' | 'history'>('scanner');
+  const [bills, setBills] = useState<BillRecord[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { user } = useSupabaseAuth();
+  const { activeProfile } = useProfile();
+
+  useEffect(() => {
+    if (user && activeTab === 'history') {
+      loadBills();
+    }
+  }, [user, activeProfile?.id, activeTab]);
+
+  const loadBills = async () => {
+    if (!user) return;
+    setLoadingHistory(true);
+    try {
+      const { data, error } = await billService.getUserBills(user.id, 50, 0, activeProfile?.id);
+      if (error) toast.error("Failed to load bills: " + error);
+      else if (data) setBills(data);
+    } catch (error) {
+      toast.error("Error loading bills");
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleDeleteBill = async (billId: string) => {
+    setDeletingId(billId);
+    try {
+      const { error } = await billService.deleteBill(billId);
+      if (error) toast.error("Failed to delete bill: " + error);
+      else {
+        toast.success("Bill deleted successfully");
+        setBills(bills.filter(bill => bill.id !== billId));
+      }
+    } catch (error) {
+      toast.error("Error deleting bill");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const filteredBills = bills.filter(bill => {
+    const searchLower = searchTerm.toLowerCase();
+    const data = bill.structured_data;
+    return (
+      bill.raw_text.toLowerCase().includes(searchLower) ||
+      (data.patientName?.toLowerCase().includes(searchLower) || false) ||
+      (data.hospitalName?.toLowerCase().includes(searchLower) || false)
+    );
+  });
 
   useEffect(() => {
     localStorage.setItem('insurance_settings', JSON.stringify(insuranceSettings));
@@ -134,29 +191,40 @@ const BillExplainer = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-[10px] font-bold tracking-[0.3em] text-amber-500 uppercase mb-2">
               <Receipt className="h-3 w-3 fill-amber-500" />
-              Bill Analysis
+              Intelligence Ledger
             </div>
             <h1 className="font-display text-3xl font-bold tracking-tight">
-              Clinical <span className="text-amber-500">Details</span>
+              Bill <span className="text-amber-500">Explainer</span>
             </h1>
             <p className="text-muted-foreground text-sm font-medium max-w-lg">
-              {isViewMode 
-                ? "History of itemized clinical expenses and insurance reconciliations." 
-                : "Translate cryptic medical billing into plain-language health expenditures."
-              }
+              Deconstruct clinical billing structures using AI-driven context resolution and insurance reconciliation.
             </p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+             {!isViewMode && !result && (
+               <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-[300px]">
+                 <TabsList className="grid w-full grid-cols-2 bg-muted/50 border border-border/10 rounded-full p-1 h-11">
+                   <TabsTrigger value="scanner" className="rounded-full text-[10px] font-bold uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-white transition-all">
+                     Scanner
+                   </TabsTrigger>
+                   <TabsTrigger value="history" className="rounded-full text-[10px] font-bold uppercase tracking-widest data-[state=active]:bg-amber-500 data-[state=active]:text-white transition-all">
+                     Archives
+                   </TabsTrigger>
+                 </TabsList>
+               </Tabs>
+             )}
+
+            <div className="flex gap-3">
              <Dialog open={showSettings} onOpenChange={setShowSettings}>
               <DialogTrigger asChild>
                 <Button id="tour-bill-insurance" variant="outline" className="rounded-full px-6 border-amber-500/20 hover:bg-amber-500/5 text-[10px] font-bold uppercase tracking-widest transition-all">
                   <ShieldCheck className="h-3.5 w-3.5 mr-2" /> Insurance Settings
                 </Button>
               </DialogTrigger>
-              <DialogContent className="glass-premium border-white/10 rounded-[2.5rem] p-10 max-w-2xl">
+              <DialogContent className="glass-premium border-border/20 rounded-[2.5rem] p-10 max-w-2xl text-foreground">
                  <DialogHeader className="mb-8">
-                   <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4 border border-white/10">
+                   <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mb-4 border border-border/20">
                      <Shield className="h-6 w-6 text-amber-500" />
                    </div>
                    <DialogTitle className="text-2xl font-display font-bold tracking-tight">Insurance Settings</DialogTitle>
@@ -168,11 +236,11 @@ const BillExplainer = () => {
                       <div id="tour-insurance-deductible-copay" className="space-y-6">
                         <div className="space-y-2">
                           <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Deductible (₹)</Label>
-                          <Input type="number" value={insuranceSettings.deductibleRemaining} onChange={(e) => setInsuranceSettings({...insuranceSettings, deductibleRemaining: Number(e.target.value)})} className="h-12 rounded-2xl bg-white/5 border-white/10" />
+                          <Input type="number" value={insuranceSettings.deductibleRemaining} onChange={(e) => setInsuranceSettings({...insuranceSettings, deductibleRemaining: Number(e.target.value)})} className="h-12 rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all" />
                         </div>
                         <div className="space-y-2">
                           <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Copay Ratio (%)</Label>
-                          <Input type="number" min="0" max="100" value={insuranceSettings.copayPercentage} onChange={(e) => setInsuranceSettings({...insuranceSettings, copayPercentage: Number(e.target.value)})} className="h-12 rounded-2xl bg-white/5 border-white/10" />
+                          <Input type="number" min="0" max="100" value={insuranceSettings.copayPercentage} onChange={(e) => setInsuranceSettings({...insuranceSettings, copayPercentage: Number(e.target.value)})} className="h-12 rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all" />
                         </div>
                       </div>
 
@@ -183,7 +251,7 @@ const BillExplainer = () => {
                             <Badge 
                               key={cat}
                               variant="outline"
-                              className={`cursor-pointer capitalize text-[10px] font-bold px-3 py-1 rounded-full transition-all ${insuranceSettings.coveredCategories.includes(cat) ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' : 'bg-white/5 border-white/5 opacity-40'}`}
+                              className={`cursor-pointer capitalize text-[10px] font-bold px-3 py-1 rounded-full transition-all ${insuranceSettings.coveredCategories.includes(cat) ? 'bg-amber-500/20 border-amber-500/40 text-amber-500' : 'bg-muted/50 border-border/10 opacity-60'}`}
                               onClick={() => toggleCategory(cat)}
                             >
                               {cat}
@@ -194,89 +262,171 @@ const BillExplainer = () => {
                     </div>
 
                     <Button onClick={() => setShowSettings(false)} className="w-full h-12 rounded-2xl bg-amber-600 hover:bg-amber-700 font-bold uppercase tracking-widest text-[10px]">
-                       Commit Configuration
+                       Confirm
                     </Button>
                  </div>
               </DialogContent>
             </Dialog>
             {isViewMode && (
-              <Button variant="ghost" className="rounded-full px-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground" onClick={() => navigate("/app/previous-bills")}>
-                Return to History
+              <Button variant="ghost" className="rounded-full px-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:bg-muted/50" onClick={handleReset}>
+                <ArrowRight className="h-3.5 w-3.5 mr-2 rotate-180" /> Return to Scanner
               </Button>
             )}
           </div>
         </div>
+      </div>
 
         {isViewMode && viewBillData ? (
           <BillResultDisplay result={viewBillData} onReset={handleReset} isViewMode={true} insuranceSettings={insuranceSettings} />
         ) : (
-          <div className="grid lg:grid-cols-12 gap-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
-            {!result ? (
-               <div className="lg:col-span-12">
-                  <div className="glass-premium p-10 rounded-[3rem] border-white/5 shadow-2xl overflow-hidden relative group">
-                    <div className="absolute inset-0 bg-amber-500/[0.02] -z-10 group-hover:bg-amber-500/[0.05] transition-colors" />
-                    
-                    <div className="flex flex-col md:flex-row gap-12 items-center">
-                       {/* Dropzone */}
-                       <div className="flex-1 w-full space-y-6">
-                         <div 
-                           id="tour-bill-dropzone"
-                           className="relative h-64 w-full rounded-[2.5rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-8 group/drop transition-all hover:border-amber-500/30 hover:bg-amber-500/5 cursor-pointer"
-                           onClick={() => fileInputRef.current?.click()}
-                         >
-                           <div className="h-16 w-16 rounded-3xl bg-white/5 flex items-center justify-center mb-4 group-hover/drop:scale-110 group-hover/drop:bg-amber-500/10 transition-all">
-                              <Upload className="h-7 w-7 text-muted-foreground group-hover/drop:text-amber-500" />
-                           </div>
-                           <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground group-hover/drop:text-amber-500">
-                             {selectedFile ? selectedFile.name : "Scan Your Bill"}
-                           </h3>
-                           <p className="text-[10px] text-muted-foreground/60 italic font-medium mt-2">
-                             Drag & Drop PDF or itemized images
-                           </p>
-                           <input ref={fileInputRef} type="file" accept=".txt,.pdf,.jpg,.jpeg,.png" onChange={handleFileSelect} className="hidden" />
-                         </div>
+          <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="w-full">
+            <TabsContent value="scanner">
+              <div className="grid lg:grid-cols-12 gap-8 animate-slide-up" style={{ animationDelay: "100ms" }}>
+                {!result ? (
+                   <div className="lg:col-span-12">
+                      <div className="glass-premium p-10 rounded-[3rem] border-white/5 shadow-2xl overflow-hidden relative group">
+                        <div className="absolute inset-0 bg-amber-500/[0.02] -z-10 group-hover:bg-amber-500/[0.05] transition-colors" />
+                        
+                        <div className="flex flex-col md:flex-row gap-12 items-center">
+                           {/* Dropzone */}
+                           <div className="flex-1 w-full space-y-6">
+                             <div 
+                               id="tour-bill-dropzone"
+                               className="relative h-64 w-full rounded-[2.5rem] border-2 border-dashed border-white/10 flex flex-col items-center justify-center p-8 group/drop transition-all hover:border-amber-500/30 hover:bg-amber-500/5 cursor-pointer"
+                               onClick={() => fileInputRef.current?.click()}
+                             >
+                               <div className="h-16 w-16 rounded-3xl bg-muted/50 flex items-center justify-center mb-4 group-hover/drop:scale-110 group-hover/drop:bg-amber-500/10 transition-all border border-border/10">
+                                  <Upload className="h-7 w-7 text-muted-foreground group-hover/drop:text-amber-500" />
+                               </div>
+                               <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground group-hover/drop:text-amber-500">
+                                 {selectedFile ? selectedFile.name : "Scan Your Bill"}
+                               </h3>
+                               <p className="text-[10px] text-muted-foreground/60 italic font-medium mt-2">
+                                 Drag & Drop PDF or itemized images
+                               </p>
+                               <input ref={fileInputRef} type="file" accept=".txt,.pdf,.jpg,.jpeg,.png" onChange={handleFileSelect} className="hidden" />
+                             </div>
 
-                         {error && (
-                           <div className="p-4 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center gap-3">
-                             <AlertCircle className="h-4 w-4 text-red-500" />
-                             <span className="text-[10px] font-bold uppercase tracking-widest text-red-500">{error}</span>
+                             {error && (
+                               <div className="p-4 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center gap-3">
+                                 <AlertCircle className="h-4 w-4 text-red-500" />
+                                 <span className="text-[10px] font-bold uppercase tracking-widest text-red-500">{error}</span>
+                               </div>
+                             )}
+                             
+                             <Button
+                               variant="hero"
+                               onClick={handleProcess}
+                               disabled={isProcessing || (!billText.trim() && !selectedFile)}
+                               className="w-full h-14 rounded-2xl bg-amber-600 hover:bg-amber-700 shadow-xl shadow-amber-500/20 gap-3 font-bold uppercase tracking-widest text-[10px]"
+                             >
+                               {isProcessing ? (
+                                 <><Loader2 className="h-4 w-4 animate-spin" /> {getProcessingMessage()}</>
+                               ) : (
+                                 <><Sparkles className="h-4 w-4" /> Analyze Bill</>
+                               )}
+                             </Button>
                            </div>
-                         )}
-                         
-                         <Button
-                           variant="hero"
-                           onClick={handleProcess}
-                           disabled={isProcessing || (!billText.trim() && !selectedFile)}
-                           className="w-full h-14 rounded-2xl bg-amber-600 hover:bg-amber-700 shadow-xl shadow-amber-500/20 gap-3 font-bold uppercase tracking-widest text-[10px]"
-                         >
-                           {isProcessing ? (
-                             <><Loader2 className="h-4 w-4 animate-spin" /> {getProcessingMessage()}</>
-                           ) : (
-                             <><Sparkles className="h-4 w-4" /> Analyze Bill</>
-                           )}
-                         </Button>
-                       </div>
 
-                       {/* Textarea Area */}
-                       <div className="flex-1 w-full space-y-4">
-                          <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-2">Manual Transcription</label>
-                          <Textarea
-                            id="tour-bill-textarea"
-                            placeholder="Paste raw clinical transcription here…"
-                            value={billText}
-                            onChange={(e) => setBillText(e.target.value)}
-                            className="min-h-[250px] rounded-3xl bg-white/5 border-white/10 focus:ring-amber-500/20 resize-none font-mono text-xs p-6"
-                          />
-                       </div>
-                    </div>
+                           {/* Textarea Area */}
+                           <div className="flex-1 w-full space-y-4">
+                              <label className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground ml-2">Manual Transcription</label>
+                              <Textarea
+                                id="tour-bill-textarea"
+                                placeholder="Paste raw clinical transcription here…"
+                                value={billText}
+                                onChange={(e) => setBillText(e.target.value)}
+                                className="min-h-[250px] rounded-3xl bg-muted/30 border-border/50 focus:bg-background focus:ring-amber-500/20 resize-none font-mono text-xs p-6 transition-all"
+                              />
+                           </div>
+                        </div>
+                      </div>
+                   </div>
+                ) : (
+                  <div className="lg:col-span-12">
+                    <BillResultDisplay result={result} onReset={handleReset} insuranceSettings={insuranceSettings} />
                   </div>
-               </div>
-            ) : (
-              <div className="lg:col-span-12">
-                <BillResultDisplay result={result} onReset={handleReset} insuranceSettings={insuranceSettings} />
+                )}
               </div>
-            )}
-          </div>
+            </TabsContent>
+
+            <TabsContent value="history" className="animate-slide-up">
+              <div className="space-y-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="relative w-full md:w-80">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search archives..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-12 rounded-full bg-muted/30 border-border/50 h-10 text-xs font-medium focus:ring-amber-500/20 focus:bg-background transition-all"
+                    />
+                  </div>
+                </div>
+
+                {loadingHistory ? (
+                  <div className="py-20 flex justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+                  </div>
+                ) : filteredBills.length === 0 ? (
+                  <div className="py-20 text-center glass-premium rounded-[3rem] border-border/10">
+                    <div className="floating-blob w-20 h-20 mx-auto flex items-center justify-center mb-6 border-amber-500/20">
+                      <Receipt className="h-8 w-8 text-amber-500/40" />
+                    </div>
+                    <h3 className="text-xl font-display font-bold mb-2">No records found</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs mx-auto italic">
+                      {searchTerm ? "Adjust search terms." : "Analyze your first bill to populate this archive."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredBills.map((bill, index) => {
+                      const data = bill.structured_data;
+                      return (
+                        <div key={bill.id} className="group relative animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${index * 50}ms` }}>
+                          <div className="floating-blob p-6 h-full flex flex-col md:flex-row gap-6 border-border/10 hover:border-amber-500/30 shadow-xl transition-all cursor-pointer overflow-hidden items-center" onClick={() => { setViewBillData(bill); setIsViewMode(true); }}>
+                            <div className="flex flex-col items-center justify-center h-16 w-16 md:h-20 md:w-20 shrink-0 bg-muted/50 rounded-3xl border border-border/20 group-hover:border-amber-500/20 transition-all">
+                              <p className="text-[10px] font-black uppercase text-muted-foreground">{new Date(bill.created_at || '').toLocaleDateString('en-US', { month: 'short' })}</p>
+                              <p className="text-xl font-display font-black tracking-tighter">{new Date(bill.created_at || '').getDate()}</p>
+                            </div>
+
+                            <div className="flex-1 min-w-0 space-y-3 text-center md:text-left">
+                              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                                <h3 className="font-display text-lg font-bold truncate group-hover:text-amber-500 transition-colors">
+                                  {data.hospitalName || "Unidentified Clinic"}
+                                </h3>
+                                <Badge variant="outline" className="w-fit mx-auto md:mx-0 text-[10px] font-bold uppercase tracking-widest bg-muted/50 border-border/10 opacity-60">
+                                  {data.lineItems?.length || 0} ITEMS
+                                </Badge>
+                              </div>
+                              <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                                  <User className="h-3 w-3 text-amber-500/60" />
+                                  {data.patientName || "System Profile"}
+                                </div>
+                                <div className="text-[10px] font-bold uppercase tracking-widest text-amber-500">
+                                  ₹{(data.totalAmount || 0).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2 shrink-0">
+                               <Button variant="ghost" size="sm" className="h-9 w-9 p-0 rounded-xl hover:bg-red-500/10 text-muted-foreground/40 hover:text-red-500 transition-colors" onClick={(e) => { e.stopPropagation(); handleDeleteBill(bill.id!); }} disabled={deletingId === bill.id}>
+                                {deletingId === bill.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-9 w-9 p-0 rounded-xl hover:bg-amber-500/10 text-muted-foreground/40 hover:text-amber-500 transition-colors">
+                                <ArrowRight className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>
@@ -466,12 +616,12 @@ const BillResultDisplay = ({ result, onReset, isViewMode = false, insuranceSetti
       <Dialog open={showDisputeLetter} onOpenChange={setShowDisputeLetter}>
         <DialogContent className="glass-premium border-white/10 rounded-[3rem] p-10 max-w-2xl shadow-3xl">
           <DialogHeader className="mb-6">
-            <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4 border border-white/10">
+            <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center mb-4 border border-border/20">
               <Handshake className="h-6 w-6 text-amber-500" />
             </div>
             <DialogTitle className="text-2xl font-display font-bold tracking-tight">Bill Dispute</DialogTitle>
           </DialogHeader>
-          <div className="bg-white/5 p-6 rounded-[2rem] text-xs font-mono whitespace-pre-wrap mt-2 max-h-[400px] overflow-y-auto border border-white/10 leading-relaxed custom-scrollbar">
+          <div className="bg-muted px-6 py-8 rounded-[2rem] text-xs font-mono whitespace-pre-wrap mt-2 max-h-[400px] overflow-y-auto border border-border/20 leading-relaxed custom-scrollbar">
             {disputeLetter}
           </div>
           <div className="flex gap-4 mt-8">

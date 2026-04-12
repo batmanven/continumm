@@ -540,7 +540,7 @@ const GuardiansDashboard = () => {
       </div>
 
       <Dialog open={showAddModal} onOpenChange={handleCloseModal}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-[2.5rem] border-white/10 shadow-2xl glass-premium">
+        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-[2.5rem] border-border/20 shadow-2xl glass-premium text-foreground">
           <div className="grid md:grid-cols-5 min-h-[500px]">
             {/* Sidebar/Info Column */}
             <div className="md:col-span-2 bg-primary p-8 text-primary-foreground hidden md:flex flex-col justify-between relative overflow-hidden">
@@ -579,7 +579,7 @@ const GuardiansDashboard = () => {
                     )}
                   </h3>
                   {modalStep > 0 && !editingId && (
-                    <Button variant="ghost" size="sm" onClick={() => setModalStep(modalStep - 1)} className="text-[10px] font-bold uppercase tracking-widest h-7 px-3 bg-white/5">
+                    <Button variant="ghost" size="sm" onClick={() => setModalStep(modalStep - 1)} className="text-[10px] font-bold uppercase tracking-widest h-7 px-3 bg-muted/50 border border-border/10">
                        Back
                     </Button>
                   )}
@@ -590,7 +590,7 @@ const GuardiansDashboard = () => {
                     <button 
                       id="tour-guard-connect-btn"
                       onClick={() => setModalStep(1)}
-                      className="w-full p-6 h-32 rounded-3xl border border-white/5 bg-white/5 hover:bg-primary/10 hover:border-primary/30 transition-all text-left group"
+                      className="w-full p-6 h-32 rounded-3xl border border-border/10 bg-muted/20 hover:bg-primary/10 hover:border-primary/30 transition-all text-left group"
                     >
                       <div className="flex items-center gap-6">
                         <div className="h-14 w-14 rounded-2xl bg-white/5 text-muted-foreground flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-all shadow-inner">
@@ -606,7 +606,7 @@ const GuardiansDashboard = () => {
                     <button 
                       id="tour-guard-manual-btn"
                       onClick={() => setModalStep(3)}
-                      className="w-full p-6 h-32 rounded-3xl border border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all text-left group"
+                      className="w-full p-6 h-32 rounded-3xl border border-border/10 bg-muted/20 hover:bg-card hover:border-border/40 transition-all text-left group"
                     >
                       <div className="flex items-center gap-6">
                         <div className="h-14 w-14 rounded-2xl bg-white/5 text-muted-foreground flex items-center justify-center group-hover:bg-white/10 transition-all shadow-inner">
@@ -632,7 +632,7 @@ const GuardiansDashboard = () => {
                           value={searchQuery}
                           onChange={e => setSearchQuery(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && handleMemberLookup(searchQuery)}
-                          className="pl-12 h-12 rounded-2xl bg-white/5 border-white/10 focus:border-primary/50 text-sm font-medium"
+                          className="pl-12 h-12 rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all focus:border-primary/50 text-sm font-medium"
                         />
                       </div>
                     </div>
@@ -665,7 +665,7 @@ const GuardiansDashboard = () => {
                         placeholder="6-DIGIT CODE" 
                         value={otpCode}
                         onChange={e => setOtpCode(e.target.value)}
-                        className="h-14 text-center text-2xl font-bold tracking-[0.5em] rounded-2xl bg-white/5 border-white/10"
+                        className="h-14 text-center text-2xl font-bold tracking-[0.5em] rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all"
                         maxLength={6}
                       />
                     </div>
@@ -690,7 +690,7 @@ const GuardiansDashboard = () => {
                           value={newDepName} 
                           onChange={e => setNewDepName(e.target.value)} 
                           placeholder="Jane Doe" 
-                          className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium"
+                          className="h-12 rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all text-sm font-medium"
                         />
                       </div>
                       
@@ -701,7 +701,7 @@ const GuardiansDashboard = () => {
                           value={newDepRel} 
                           onChange={e => setNewDepRel(e.target.value)} 
                           placeholder="Spouse, Child..." 
-                          className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium"
+                          className="h-12 rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all text-sm font-medium"
                         />
                       </div>
 
@@ -712,14 +712,14 @@ const GuardiansDashboard = () => {
                           type="date" 
                           value={newDepDOB} 
                           onChange={e => setNewDepDOB(e.target.value)} 
-                          className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium"
+                          className="h-12 rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all text-sm font-medium"
                         />
                       </div>
 
                       <div className="space-y-2">
                         <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Gender</Label>
                         <Select value={newDepGender} onValueChange={setNewDepGender} required>
-                          <SelectTrigger className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium">
+                          <SelectTrigger className="h-12 rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all text-sm font-medium">
                             <SelectValue placeholder="Protocol" />
                           </SelectTrigger>
                           <SelectContent className="glass-premium border-white/10 rounded-2xl">
@@ -736,7 +736,7 @@ const GuardiansDashboard = () => {
                           <span className="text-red-500 italic opacity-60">Required</span>
                         </Label>
                         <Select value={newDepBlood} onValueChange={setNewDepBlood} required>
-                          <SelectTrigger className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium">
+                          <SelectTrigger className="h-12 rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all text-sm font-medium">
                             <SelectValue placeholder="Nexus-A/B/O" />
                           </SelectTrigger>
                           <SelectContent className="glass-premium border-white/10 rounded-2xl">
@@ -754,7 +754,7 @@ const GuardiansDashboard = () => {
                           value={newDepEmail} 
                           onChange={e => setNewDepEmail(e.target.value)} 
                           placeholder="jane@nexus.link" 
-                          className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium"
+                          className="h-12 rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all text-sm font-medium"
                         />
                       </div>
 
@@ -764,16 +764,16 @@ const GuardiansDashboard = () => {
                           value={newDepPhone} 
                           onChange={e => setNewDepPhone(e.target.value)} 
                           placeholder="+91..." 
-                          className="h-12 rounded-2xl bg-white/5 border-white/10 text-sm font-medium"
+                          className="h-12 rounded-2xl bg-muted/30 border-border/50 focus:bg-background transition-all text-sm font-medium"
                         />
                       </div>
                     </div>
 
                     <div className="flex gap-4 pt-6">
-                      <Button type="button" variant="outline" onClick={handleCloseModal} className="flex-1 rounded-2xl h-12 font-bold border-white/10">
+                      <Button type="button" variant="outline" onClick={handleCloseModal} className="flex-1 rounded-2xl h-12 font-bold border-border/50">
                         Cancel
                       </Button>
-                      <Button type="submit" className="flex-1 rounded-2xl h-12 font-bold bg-primary shadow-xl shadow-primary/20">
+                      <Button type="submit" className="flex-1 rounded-2xl h-12 font-bold bg-primary shadow-xl shadow-primary/20 text-white">
                         {editingId ? "Update Member" : "Commit to Nexus"}
                       </Button>
                     </div>

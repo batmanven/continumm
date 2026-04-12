@@ -249,7 +249,7 @@ const MedicationsDashboard = () => {
         if (!open) { setInteractionWarning(null); setIsAnalyzing(false); }
         setShowAddModal(open);
       }}>
-        <DialogContent className="glass-premium border-white/10 rounded-[2rem] p-8 max-w-md shadow-2xl">
+        <DialogContent className="glass-premium border-border/20 rounded-[2rem] p-8 max-w-md shadow-2xl">
           <DialogHeader className="mb-6">
             <DialogTitle className="text-xl font-display font-bold tracking-tight">
               {interactionWarning ? "Safety Warning" : "Add Prescription"}
@@ -270,7 +270,7 @@ const MedicationsDashboard = () => {
               </p>
               
               <div className="flex gap-3">
-                <Button variant="outline" className="flex-1 rounded-xl h-11 border-white/10" onClick={() => {
+                <Button variant="outline" className="flex-1 rounded-xl h-11 border-border/20" onClick={() => {
                   setInteractionWarning(null);
                   setShowAddModal(false);
                 }}>
@@ -285,16 +285,16 @@ const MedicationsDashboard = () => {
             <form onSubmit={(e) => handleCreateMedication(e, false)} className="space-y-6">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Medication Name</Label>
-                <Input required value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Lisinopril" className="h-12 rounded-xl bg-white/5 border-white/10 focus:border-indigo-500/50" />
+                <Input required value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Lisinopril" className="h-12 rounded-xl bg-muted/30 border-border/50 focus:bg-background transition-all focus:border-indigo-500/50" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Dosage</label>
-                  <Input value={newDosage} onChange={e => setNewDosage(e.target.value)} placeholder="10mg" className="h-12 rounded-xl bg-white/5 border-white/10" />
+                  <Input value={newDosage} onChange={e => setNewDosage(e.target.value)} placeholder="10mg" className="h-12 rounded-xl bg-muted/30 border-border/50 focus:bg-background transition-all" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Frequency</label>
-                  <Input value={newFrequency} onChange={e => setNewFrequency(e.target.value)} placeholder="Once daily" className="h-12 rounded-xl bg-white/5 border-white/10" />
+                  <Input value={newFrequency} onChange={e => setNewFrequency(e.target.value)} placeholder="Once daily" className="h-12 rounded-xl bg-muted/30 border-border/50 focus:bg-background transition-all" />
                 </div>
               </div>
               <Button type="submit" className="w-full h-12 rounded-xl bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-500/20 font-bold uppercase tracking-widest text-xs" disabled={isAnalyzing}>

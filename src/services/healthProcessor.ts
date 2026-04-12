@@ -214,6 +214,64 @@ Response:`;
     return validated;
   }
 
+  private createChatPrompt(currentInput: string, history: { role: string, content: string }[], userContext?: UserContext): string {
+    const historyText = history.length > 0 
+      ? `\nCONVERSATION HISTORY:\n${history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n')}\n`
+      : '';
+
+    let patientInfo = '';
+    if (userContext) {
+      const parts: string[] = [];
+      if (userContext.gender) parts.push(`Gender: ${userContext.gender}`);
+      if (userContext.age) parts.push(`Age: ${userContext.age}`);
+      if (userContext.activeMedications?.length) parts.push(`Active Medications: ${userContext.activeMedications.join(', ')}`);
+      patientInfo = `\nPATIENT CONTEXT: ${parts.join(', ')}\n`;
+    }
+
+    return `You are a professional Health Assistant AI named "Continuum Buddy". Analyze the user's latest message in the context of their history.
+${patientInfo}${historyText}
+LATEST USER MESSAGE: "${currentInput}"
+
+Your task:
+1. Provide a supportive, clinically informed (but not diagnostic) response.
+2. Extract structured health data (symptoms, medications, mood, etc.).
+3. If the user mentions "severe" symptoms, prioritize clinical caution.
+4. If a symptom is mentioned, classify it as "symptom", not "general".
+
+Return a JSON object:
+{
+  "response": "Your conversational response here",
+  "structured": {
+    "symptoms": [{"name": "string", "severity": "mild|moderate|severe", "location": "string"}],
+    "medications": [{"name": "string", "dosage": "string"}],
+    "mood": {"level": "string"},
+    "tags": ["string"],
+    "is_clinical": true
+  }
+}
+
+Respond ONLY with valid JSON.`;
+  }
+
+  async processChat(currentInput: string, history: { role: string, content: string }[], userContext?: UserContext): Promise<{ response: string, structured: any }> {
+    try {
+      const prompt = this.createChatPrompt(currentInput, history, userContext);
+      const result = await ai.models.generateContent({
+        model: this.model,
+        contents: prompt
+      });
+      const text = result.text;
+      const cleanJsonText = text.replace(/```json\n?|\n?```/g, '').trim();
+      return JSON.parse(cleanJsonText);
+    } catch (error) {
+       console.error('Chat processing error:', error);
+       return { 
+         response: "I'm having trouble processing that right now. Could you rephrase?", 
+         structured: { is_clinical: false }
+       };
+    }
+  }
+
   async processHealthEntry(userInput: string, base64Image?: string, mimeType: string = "image/jpeg", userContext?: UserContext): Promise<HealthProcessingResult> {
     try {
 
@@ -318,7 +376,6 @@ Response:`;
     recommendations: string[];
   }> {
     try {
-
       const entriesText = entries.map(entry =>
         `Date: ${entry.created_at?.split('T')[0]}, Type: ${entry.entry_type}, Content: ${entry.raw_content}`
       ).join('\n');
@@ -333,20 +390,21 @@ Response:`;
         }
       }
 
-      const prompt = `Based on these health entries, generate a concise health summary for a doctor:\n${patientInfo}
-
+      const prompt = `Act as an expert clinical analyst. Review these health entries and generate a professional summary for a doctor.
+${patientInfo}
+HEALTH RECORDS:
 ${entriesText}
 
-Please provide:
-1. A brief patient summary (2-3 sentences)
-2. Key health insights or patterns (2-3 bullet points)
-3. Recommendations for the patient (2-3 bullet points)
+Your Requirements:
+1. SYNTHESIZE: Don't just list entries. Identify clinical trends (e.g., "Frequent headaches coinciding with poor sleep").
+2. RISK ASSESSMENT: Flag high-severity symptoms or concerning medication patterns.
+3. ADHERENCE: Note if the patient is following their medication profile.
 
 Format as JSON:
 {
-  "summary": "Patient summary here",
-  "insights": ["insight 1", "insight 2"],
-  "recommendations": ["recommendation 1", "recommendation 2"]
+  "summary": "Professional clinical synthesis",
+  "insights": ["specific pattern observation", "severity flag"],
+  "recommendations": ["clinical follow-up suggestion", "lifestyle adjustment"]
 }
 
 Return ONLY valid JSON.`;
@@ -368,6 +426,47 @@ Return ONLY valid JSON.`;
         insights: ["Please review your health entries manually"],
         recommendations: ["Consult with your healthcare provider"]
       };
+    }
+  }
+
+  async summarizeConversation(history: { role: string, content: string }[]): Promise<any[]> {
+    try {
+      const historyText = history.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+      const prompt = `Examine this conversation and identify discrete health facts that should be added to a medical timeline.
+FACTS TO EXTRACT: Symptoms, medications taken, sleep quality, mood changes, or specific health observations.
+
+CONVERSATION:
+${historyText}
+
+Return a JSON array of entries:
+[
+  {
+    "raw_content": "Clean summary of the fact (e.g., 'Experienced severe headache for 4 hours')",
+    "entry_type": "symptom|medication|sleep|mood|energy|general",
+    "structured_data": { 
+      "symptom_name": "string",
+      "severity": "mild|moderate|severe"
+    }
+  }
+]
+
+IMPORTANT:
+1. Merge related facts into single clean entries.
+2. Only include facts explicitly mentioned.
+3. If no clear health facts were discussed, return an empty array [].
+
+Return ONLY JSON.`;
+
+      const result = await ai.models.generateContent({
+        model: this.model,
+        contents: prompt
+      });
+      const text = result.text;
+      const cleanJsonText = text.replace(/```json\n?|\n?```/g, '').trim();
+      return JSON.parse(cleanJsonText);
+    } catch (error) {
+      console.error('Conversation summary error:', error);
+      return [];
     }
   }
 }

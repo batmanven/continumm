@@ -8,7 +8,7 @@ export type BodyRegion =
   | 'abductors' | 'calves' | 'gluteal';
 
 export interface BodyHeatmapProps {
-  heatData: Partial<Record<BodyRegion, number>>; // 0-10 severity
+  heatData: Partial<Record<BodyRegion, number>>;
   onRegionHover?: (region: BodyRegion | null) => void;
   hoveredRegion?: BodyRegion | null;
   selectedRegion?: BodyRegion | null;
@@ -30,22 +30,34 @@ export const BodyHeatmap: React.FC<BodyHeatmapProps> = ({
 
   const data = useMemo(() => {
     const arr: { name: string; muscles: BodyRegion[] }[] = [];
+
     Object.entries(heatData).forEach(([region, value]) => {
-        const intensity = Math.min(Math.max(Math.round((value as number)), 0), 10);
-        for(let i = 0; i < intensity; i++) {
-           arr.push({ name: `Heat_${region}_${i}`, muscles: [region as BodyRegion] });
-        }
+      const intensity = Math.min(Math.max(Math.round((value as number)), 0), 10);
+      for (let i = 0; i < intensity; i++) {
+        arr.push({ name: `Heat_${region}_${i}`, muscles: [region as BodyRegion] });
+      }
     });
 
     if (hoveredRegion || selectedRegion) {
-        const highlightRegion = selectedRegion || hoveredRegion;
-        for(let i = 0; i < 5; i++) {
-           arr.push({ name: 'Active_Highlight', muscles: [highlightRegion as BodyRegion] });
-        }
+      const highlightRegion = selectedRegion || hoveredRegion;
+      for (let i = 0; i < 5; i++) {
+        arr.push({ name: 'Active_Highlight', muscles: [highlightRegion as BodyRegion] });
+      }
     }
 
     return arr;
   }, [heatData, hoveredRegion, selectedRegion]);
+
+  const handleClick = (exercise: any) => {
+    if (!onRegionClick) return;
+    console.log('Full exercise object:', JSON.stringify(exercise));
+    // Normalize whatever casing the library returns so it always matches map keys
+    const raw: string = exercise?.muscle ?? exercise?.muscles?.[0] ?? '';
+    if (!raw) return;
+    const normalized = raw.toLowerCase().trim() as BodyRegion;
+    console.log('Normalized:', normalized);
+    onRegionClick(normalized);
+  };
 
   return (
     <div className={`w-full flex flex-col items-center justify-center ${hideControls ? 'p-0' : 'p-4'}`}>
@@ -68,18 +80,18 @@ export const BodyHeatmap: React.FC<BodyHeatmapProps> = ({
         </div>
       )}
 
-      <div className={`w-full max-w-[280px] drop-shadow-sm transition-all duration-300 ${hideControls ? 'mt-0' : ''}`}>
-          <Model
-             data={data}
-             type={view}
-             bodyType={gender}
-             onClick={(exercise: any) => {
-                 if (onRegionClick && exercise && exercise.muscle) {
-                     onRegionClick(exercise.muscle as BodyRegion);
-                 }
-             }}
-             highlightedColors={['#e2e8f0', '#fef08a', '#facc15', '#f97316', '#ef4444', '#b91c1c']}
-          />
+      <div
+        className={`w-full max-w-[280px] drop-shadow-sm transition-all duration-300 ${hideControls ? 'mt-0' : ''}`}
+        // Hover handled via native DOM events since the library doesn't expose typed hover props
+        onMouseLeave={() => onRegionHover?.(null)}
+      >
+        <Model
+          data={data}
+          type={view}
+          bodyType={gender}
+          onClick={handleClick}
+          highlightedColors={['#e2e8f0', '#fef08a', '#facc15', '#f97316', '#ef4444', '#b91c1c']}
+        />
       </div>
     </div>
   );

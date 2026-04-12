@@ -168,6 +168,7 @@ const DoctorSummaries = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [showPreVisitBrief, setShowPreVisitBrief] = useState(false);
   const [preVisitBrief, setPreVisitBrief] = useState<any>(null);
+  const [showQueries, setShowQueries] = useState(true);
 
   const calculateAge = (dobString?: string) => {
     if (!dobString) return "Not Specified";
@@ -189,6 +190,7 @@ const DoctorSummaries = () => {
   const generatePreVisitBrief = async () => {
     if (!user) return;
     setLoading(true);
+    setPreVisitBrief(null);
     
     try {
       // 1. Fetch real health entries for the last 30 days
@@ -233,24 +235,35 @@ const DoctorSummaries = () => {
       // 3. Aggregate active days for clinical insight
       const uniqueDays = new Set(entries.map(e => new Date(e.created_at!).toDateString()));
 
-      // 4. Construct Brief
+      // 4. Generate dynamic queries based on findings
+      const dynamicQueries = chiefComplaints.map(cc => [
+        `Is the ${cc.trend.toLowerCase()} intensity of ${cc.symptom} cause for immediate clinical concern?`,
+        `Given the ${cc.frequency.toLowerCase()} frequency of ${cc.symptom}, should we consider diagnostic imaging or bloodwork?`,
+        `Are there specific lifestyle adjustments to manage the ${cc.trend.toLowerCase()} pattern of ${cc.symptom}?`
+      ]).flat().slice(0, 3);
+
+      if (dynamicQueries.length === 0) {
+        dynamicQueries.push(
+          "What baseline metrics should I track to better evaluate my current state?",
+          "Are there preventative screenings recommended for my demographic and history?",
+          "How can I optimize my current wellness regimen?"
+        );
+      }
+
+      // 5. Construct Brief
       const brief = {
         patientName: activeProfile.name || user?.user_metadata?.full_name || "Patient",
         patientAge: calculateAge(activeProfile.date_of_birth),
         period: "Last 30 Days",
         chiefComplaints: chiefComplaints.length > 0 ? chiefComplaints : [
-          { symptom: "No symptoms reported", frequency: "N/A", trend: "N/A", notes: "Patient history clear for this period." }
+          { symptom: "No acute symptoms", frequency: "N/A", trend: "Stable", notes: "Longitudinal tracking shows no deviations." }
         ],
         clinicalFocus: [
-          `Analysis based on ${entries.length} tracked clinical events over ${uniqueDays.size} active days.`,
-          chiefComplaints.length > 0 ? `${chiefComplaints[0].symptom} shows a ${chiefComplaints[0].trend} trend.` : "Patient state remains stable.",
-          "Clinical data provides longitudinal context for diagnostic evaluation."
+          `Analysis indicates ${chiefComplaints.length} primary clinical vectors across ${entries.length} data points.`,
+          chiefComplaints.length > 0 ? `${chiefComplaints[0].symptom} is the primary focus with a ${chiefComplaints[0].trend} trend.` : "Clinical state appears baseline stable.",
+          `Patient tracked data consistently across ${uniqueDays.size} unique intervals.`
         ],
-        suggestedQueries: [
-          "Assessment of symptom frequency relative to baseline?",
-          "Review of pharmacological efficacy for primary complaints?",
-          "Diagnostic necessity for longitudinal pattern changes?"
-        ]
+        suggestedQueries: dynamicQueries
       };
       
       setPreVisitBrief(brief);
@@ -426,17 +439,6 @@ const DoctorSummaries = () => {
                 <div>
                   <p className="text-2xl font-bold">{stats.this_month}</p>
                   <p className="text-xs text-muted-foreground">This Month</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Tag className="h-4 w-4 text-purple-500" />
-                <div>
-                  <p className="text-2xl font-bold">{stats.recent_tags.length}</p>
-                  <p className="text-xs text-muted-foreground">Tags Used</p>
                 </div>
               </div>
             </CardContent>
@@ -678,6 +680,15 @@ const DoctorSummaries = () => {
       {/* Pre-Visit Brief Dialog */}
       <Dialog open={showPreVisitBrief} onOpenChange={setShowPreVisitBrief}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-50">
+          <div data-html2canvas-ignore="true" className="absolute top-4 right-12 z-50 flex items-center gap-2 bg-white/10 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Recommended Queries</span>
+            <button 
+              onClick={() => setShowQueries(!showQueries)}
+              className={`w-8 h-4 rounded-full transition-colors relative ${showQueries ? 'bg-indigo-600' : 'bg-slate-400'}`}
+            >
+              <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${showQueries ? 'left-4.5' : 'left-0.5'}`} />
+            </button>
+          </div>
           {preVisitBrief && (
             <>
             <div id="pre-visit-brief-content" className="flex flex-col min-h-full relative overflow-hidden">
@@ -690,15 +701,6 @@ const DoctorSummaries = () => {
                 <div className="bg-slate-900 text-white p-10 space-y-6 relative z-10 border-b-4 border-indigo-600 font-sans">
                    <div className="flex justify-between items-start">
                       <div className="space-y-3">
-                         <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-lg bg-indigo-600 flex items-center justify-center">
-                               <Stethoscope className="h-6 w-6 text-white" />
-                            </div>
-                            <div>
-                               <p className="text-[10px] font-bold tracking-[0.3em] uppercase text-indigo-400">Continuum Passport</p>
-                               <p className="text-xs font-mono text-slate-400">REF: {Math.random().toString(36).substring(7).toUpperCase()}</p>
-                            </div>
-                         </div>
                          <h2 className="text-4xl font-display font-bold tracking-tight">{preVisitBrief.patientName}</h2>
                          <div className="flex items-center gap-4 text-slate-400 text-sm font-medium">
                             <span>Age: {preVisitBrief.patientAge}</span>
@@ -772,24 +774,26 @@ const DoctorSummaries = () => {
 
                    {/* Right Column: Physician Action & Transcription Area */}
                    <div className="md:col-span-2 p-10 bg-slate-50/50 space-y-10">
-                      <section className="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-indigo-200 relative overflow-hidden font-sans">
-                         <div className="absolute top-0 right-0 p-4 opacity-10">
-                            <ClipboardList className="h-20 w-20" />
-                         </div>
-                         <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] mb-6 flex items-center gap-2 opacity-80">
-                            <MessageSquare className="h-4 w-4" /> Recommended Queries
-                         </h3>
-                         <div className="space-y-4 relative z-10">
-                            {preVisitBrief.suggestedQueries.map((q: string, i: number) => (
-                               <div key={i} className="p-4 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 transition-colors text-sm font-medium leading-snug cursor-pointer group flex gap-3 text-white">
-                                  <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 group-hover:bg-white/40 transition-colors">
-                                     <ArrowRight className="h-3 w-3" />
-                                  </div>
-                                  {q}
-                               </div>
-                            ))}
-                         </div>
-                      </section>
+                       {showQueries && (
+                         <section className="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-indigo-200 relative overflow-hidden font-sans">
+                          <div className="absolute top-0 right-0 p-4 opacity-10">
+                             <ClipboardList className="h-20 w-20" />
+                          </div>
+                          <h3 className="text-[11px] font-bold uppercase tracking-[0.2em] mb-6 flex items-center gap-2 opacity-80">
+                             <MessageSquare className="h-4 w-4" /> Recommended Queries
+                          </h3>
+                          <div className="space-y-4 relative z-10">
+                             {preVisitBrief.suggestedQueries.map((q: string, i: number) => (
+                                <div key={i} className="p-4 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20 transition-colors text-sm font-medium leading-snug cursor-pointer group flex gap-3 text-white">
+                                   <div className="h-5 w-5 rounded-full bg-white/20 flex items-center justify-center shrink-0 group-hover:bg-white/40 transition-colors">
+                                      <ArrowRight className="h-3 w-3" />
+                                   </div>
+                                   {q}
+                                </div>
+                             ))}
+                          </div>
+                       </section>
+                       )}
 
                       <section className="space-y-4">
                          <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-2 flex items-center gap-2 font-sans">

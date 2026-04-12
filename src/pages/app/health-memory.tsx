@@ -38,7 +38,8 @@ import {
 import { useHealthMemory } from "@/hooks/useHealthMemory";
 import { useSymptomChecker } from "@/hooks/useSymptomChecker";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
-import { HealthEntry } from "@/services/healthService";
+import { healthService, HealthEntry } from "@/services/healthService";
+import { healthProcessor } from "@/services/healthProcessor";
 import { doctorSummaryService } from "@/services/doctorSummaryService";
 import { useProfile } from "@/contexts/ProfileContext";
 import { toast } from "sonner";
@@ -128,46 +129,24 @@ const HealthMemory = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const detectSymptomKeywords = (text: string): { hasSymptoms: boolean; symptoms: string[] } => {
-    const symptomKeywords = [
-      'headache', 'pain', 'ache', 'hurt', 'sore', 'stiff', 'numb', 'tingling',
-      'nausea', 'vomiting', 'dizzy', 'lightheaded', 'faint', 'fatigue', 'tired',
-      'fever', 'chills', 'sweating', 'cough', 'cold', 'flu', 'congestion',
-      'bloating', 'cramps', 'indigestion', 'heartburn', 'diarrhea', 'constipation',
-      'rash', 'itchy', 'redness', 'swelling', 'inflammation', 'bruise'
-    ];
-    
-    const foundSymptoms: string[] = [];
-    const lowerText = text.toLowerCase();
-    
-    symptomKeywords.forEach(keyword => {
-      if (lowerText.includes(keyword)) {
-        foundSymptoms.push(keyword);
-      }
-    });
-    
-    return {
-      hasSymptoms: foundSymptoms.length > 0,
-      symptoms: foundSymptoms
-    };
-  };
-
-  const extractSeverity = (text: string): number => {
-    const severityMap: { [key: string]: number } = {
-      'mild': 3, 'slight': 3, 'minor': 3,
-      'moderate': 5, 'medium': 5,
-      'severe': 8, 'bad': 8, 'terrible': 8, 'awful': 8,
-      'extreme': 10, 'worst': 10, 'unbearable': 10
-    };
-    
-    const lowerText = text.toLowerCase();
-    for (const [word, severity] of Object.entries(severityMap)) {
-      if (lowerText.includes(word)) {
-        return severity;
+  const getUserContext = (): any => {
+    if (!user) return undefined;
+    const dob = user.user_metadata?.date_of_birth;
+    let age: number | undefined;
+    if (dob) {
+      const birthDate = new Date(dob);
+      const today = new Date();
+      age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
       }
     }
-    
-    return 5; 
+    return { 
+      name: activeProfile.name || user?.user_metadata?.name, 
+      gender: activeProfile.gender || user?.user_metadata?.gender, 
+      age
+    };
   };
 
   const handleToggleRecording = () => {
@@ -250,104 +229,67 @@ const HealthMemory = () => {
 
     setMessages(prev => [...prev, userMessage as any]);
     const currentInput = input || (selectedImage ? "Analyzed image." : "");
-    const currentImage = selectedImage;
+    const currentMessages = [...messages, userMessage as any];
     setInput("");
     handleRemoveImage();
 
-    
-    const emergencyKeywords = [
-      'kill myself', 'end my life', 'suicide right now',
-      'unconscious', 'not breathing', 'stopped breathing',
-      'heart attack right now', 'stroke right now'
-    ];
-    
-    if (emergencyKeywords.some(keyword => 
-      currentInput.toLowerCase().includes(keyword)
-    )) {
-      setMessages(prev => [...prev, {
-        role: "ai",
-        content: "I notice you might be in a serious situation. Please reach out to emergency services or a trusted person right away. Your safety is important. If you need immediate help, please call emergency services.",
-        timestamp: new Date().toISOString()
-      }]);
-      return;
-    }
-
-    
-    const { hasSymptoms, symptoms } = detectSymptomKeywords(currentInput);
-    
-    if (hasSymptoms && user) {
-      const severity = extractSeverity(currentInput);
-      
-      
-      await addSymptomEntry({
-        symptom_name: symptoms[0], 
-        severity,
-        description: currentInput,
-        triggers: [],
-        stress_level: 5, 
-        sleep_hours: 7, 
-        start_time: new Date().toISOString()
-      });
-    }
-
-    
-    await addHealthEntry(currentInput, currentImage || undefined);
-
-    
-    let aiResponse = generateAIResponse(currentInput, hasSymptoms, symptoms);
-    
-    if (hasSymptoms) {
-      aiResponse += "\n\nI've also added this to your symptom tracker to help identify patterns over time.";
-    }
+    // Contextual AI Processing via Gemini
+    const result = await healthProcessor.processChat(
+      currentInput, 
+      currentMessages.slice(-5), // Send last 5 messages for context
+      getUserContext()
+    );
 
     setMessages(prev => [...prev, {
       role: "ai",
-      content: aiResponse,
+      content: result.response,
       timestamp: new Date().toISOString()
     }]);
   };
 
-  const generateAIResponse = (userInput: string, hasSymptoms: boolean, symptoms: string[]): string => {
-    const lowerInput = userInput.toLowerCase();
+  const handleSyncAndSummarize = async () => {
+    if (messages.length < 2) {
+      toast.error("Let's chat a bit more before summarizing!");
+      return;
+    }
+
+    toast.loading("Analyzing conversation for timeline items...", { id: "sync" });
     
-    if (hasSymptoms) {
-      const symptomResponse = `I've noted your ${symptoms.join(' and ')} symptoms. Tracking these patterns can help identify triggers and frequency. I'll analyze this along with your other health data to find any patterns.`;
+    try {
+      const extractedFacts = await healthProcessor.summarizeConversation(messages);
       
-      if (symptoms.includes('headache')) {
-        return symptomResponse + " Headaches can be related to stress, sleep, or dehydration. Have you noticed any patterns with yours?";
+      if (extractedFacts && extractedFacts.length > 0) {
+        // Commit extracted facts to the timeline
+        for (const fact of extractedFacts) {
+          if (fact.entry_type === 'symptom') {
+            await addSymptomEntry({
+              ...fact.structured_data,
+              description: fact.raw_content,
+              start_time: new Date().toISOString()
+            });
+          } else {
+            await healthService.createHealthEntry(
+              user!.id,
+              fact.raw_content,
+              fact.entry_type,
+              activeProfile.id
+            );
+          }
+        }
+        toast.success(`Sync complete: ${extractedFacts.length} items added to timeline`, { id: "sync" });
+        await refreshEntries();
+      } else {
+        toast.info("No new clinical items found to sync.", { id: "sync" });
       }
-      if (symptoms.includes('pain')) {
-        return symptomResponse + " Pain tracking is important for identifying triggers. Is this a new pain or something you've experienced before?";
-      }
-      if (symptoms.includes('fatigue') || symptoms.includes('tired')) {
-        return symptomResponse + " Fatigue can be related to sleep, stress, or nutrition. How has your sleep been lately?";
-      }
-      
-      return symptomResponse;
+
+      // Finally, generate the doctor summary
+      await handleGenerateSummary();
+    } catch (error) {
+       console.error("Sync error:", error);
+       toast.error("Failed to sync chat to timeline", { id: "sync" });
     }
-    
-    if (lowerInput.includes('medicine') || lowerInput.includes('took') || lowerInput.includes('pill')) {
-      return `Medication noted! I'll keep track of how you're feeling and any side effects. Remember to take medications as prescribed by your doctor.`;
-    }
-    
-    if (lowerInput.includes('tired') || lowerInput.includes('fatigue') || lowerInput.includes('energy')) {
-      return `Energy level logged! This will help track your patterns over time. Make sure you're getting enough rest and stay hydrated.`;
-    }
-    
-    if (lowerInput.includes('sleep') || lowerInput.includes('slept')) {
-      return `Sleep info added! Good sleep is so important for recovery and overall health. I'll track this along with your other symptoms.`;
-    }
-    
-    if (lowerInput.includes('hello') || lowerInput.includes('hi') || lowerInput.includes('hey')) {
-      return `Hello! How are you feeling today? You can tell me about any symptoms, medications, sleep, or just how you're doing overall. I'll help organize it all and look for patterns.`;
-    }
-    
-    if (lowerInput.includes('pattern') || lowerInput.includes('trend')) {
-      return `Great question! I'm tracking patterns in your symptoms, mood, sleep, and energy. Check out the Symptom Checker page in the sidebar for detailed pattern analysis!`;
-    }
-    
-    return `Got it! I've added that to your health timeline. Is there anything specific about how you're feeling that you'd like me to track more closely?`;
   };
+
 
   const handleClearChat = () => {
     const storageKey = `health-chat-messages-${activeProfile.id}`;
@@ -426,22 +368,7 @@ const HealthMemory = () => {
             className="gap-2"
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            Clear Chat
-          </Button>
-          <Button
-            id="tour-hm-summary-btn"
-            variant="hero-outline"
-            size="sm"
-            onClick={handleGenerateSummary}
-            disabled={loadingSummary}
-            className="gap-2"
-          >
-            {loadingSummary ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <ClipboardList className="h-3.5 w-3.5" />
-            )}
-            Generate Doctor Summary
+            Clear Chat History
           </Button>
         </div>
       </div>
@@ -596,6 +523,26 @@ const HealthMemory = () => {
                   )}
                 </Button>
               </div>
+
+              <div className="mt-4 pt-4 border-t flex items-center justify-between">
+                <p className="text-[10px] text-muted-foreground italic max-w-[60%] leading-tight">
+                  I'm analyzing our chat in real-time. When we're done, click the analyze button to commit clinical items to your health timeline.
+                </p>
+                <Button
+                  onClick={handleSyncAndSummarize}
+                  disabled={messages.length < 2 || loadingSummary}
+                  variant="hero"
+                  size="sm"
+                  className="rounded-xl px-4 shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-right duration-500"
+                >
+                  {loadingSummary ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Brain className="h-4 w-4 mr-2" />
+                  )}
+                  Analyze & Sync Timeline
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -617,14 +564,24 @@ const HealthMemory = () => {
                   </p>
                 ) : (
                   entries.slice(0, 5).map((entry, index) => (
-                    <div key={entry.id} className="flex items-start gap-3">
+                    <div key={entry.id} className="flex items-start gap-3 group relative">
                       <div className="w-2 h-2 rounded-full bg-primary mt-2" />
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          {getEntryIcon(entry.entry_type)}
-                          <Badge variant="secondary" className="text-xs">
-                            {entry.entry_type}
-                          </Badge>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            {getEntryIcon(entry.entry_type)}
+                            <Badge variant="secondary" className="text-xs">
+                              {entry.entry_type}
+                            </Badge>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-red-500 hover:bg-red-50"
+                            onClick={() => deleteEntry(entry.id!)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
                         <p className="text-sm text-foreground">
                           {entry.raw_content.length > 50
