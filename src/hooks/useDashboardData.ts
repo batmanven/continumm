@@ -31,7 +31,7 @@ export interface DashboardStats {
   continuumScore: {
     score: number;
     status: 'optimal' | 'stable' | 'needs_attention';
-    breakdown: Array<{ label: string; impact: number }>;
+    breakdown: Array<{ label: string; impact: number; details?: string[] }>;
   };
   recentActivity: Array<{
     id: string;
@@ -106,7 +106,7 @@ export const useDashboardData = () => {
       
       const recentActivity = processRecentActivity(healthEntries, bills, summaries);
 
-      const continuumScore = calculateContinuumScore(healthStats, medications);
+      const continuumScore = calculateContinuumScore(healthStats, medications, summaries);
 
       setData({
         healthStats,
@@ -130,9 +130,10 @@ export const useDashboardData = () => {
       new Date(entry.created_at!) > weekAgo
     );
 
-    
+    // 1. Scan structured symptoms and raw content for clinical indicators
     const recentSymptoms: string[] = [];
     entries.forEach(entry => {
+      // Check structured data
       if (entry.structured_data?.symptoms) {
         entry.structured_data.symptoms.forEach(symptom => {
           if (!recentSymptoms.includes(symptom.name)) {
@@ -140,6 +141,26 @@ export const useDashboardData = () => {
           }
         });
       }
+
+      // Scan raw content for symptom keywords (Natural Language Detection)
+      const content = entry.raw_content.toLowerCase();
+      const keywords = {
+        'temp': 'High Temperature',
+        'fever': 'Fever',
+        'headache': 'Headache',
+        'pain': 'Pain',
+        'cough': 'Cough',
+        'nausea': 'Nausea',
+        'fatigue': 'Fatigue',
+        'dizzy': 'Dizziness',
+        'shortness of breath': 'Shortness of Breath'
+      };
+
+      Object.entries(keywords).forEach(([kw, label]) => {
+        if (content.includes(kw) && !recentSymptoms.includes(label)) {
+          recentSymptoms.push(label);
+        }
+      });
     });
 
     
@@ -346,60 +367,139 @@ export const useDashboardData = () => {
     return 'Other';
   };
 
-  const calculateContinuumScore = (healthStats: any, medications: any[]) => {
+  const calculateContinuumScore = (healthStats: any, medications: any[], summaries: DoctorSummary[]) => {
     // If no data exists yet, return a perfect initial score with an informing label
-    if (healthStats.totalEntries === 0 && medications.length === 0) {
+    if (healthStats.totalEntries === 0 && medications.length === 0 && summaries.length === 0) {
       return { 
         score: 100, 
         status: 'stable' as const, 
-        breakdown: [{ label: 'System Initializing', impact: 0 }] 
+        breakdown: [{ label: 'System Initializing', impact: 0, details: ['Analyzing your clinical profile for the first time.'] }] 
       };
     }
 
-    let score = 85; // Baseline for active accounts
-    const breakdown: Array<{ label: string; impact: number }> = [];
+    let score = 80; // Baseline for active accounts
+    const breakdown: Array<{ label: string; impact: number; details?: string[] }> = [];
 
-    // Symptom Impact - Only reward if they are actually tracking
-    if (healthStats.thisWeekEntries > 5) {
-      score += 5;
-      breakdown.push({ label: 'Consistent Tracking', impact: 5 });
-    }
+    // 1. Individual Symptom Impact (Calibrated for Sensitivity)
+    if (healthStats.recentSymptoms.length > 0) {
+      const uniqueSymptoms = [...new Set(healthStats.recentSymptoms)];
+      uniqueSymptoms.forEach(symptom => {
+        score -= 2; // Reduced from -5 to -2 for better balance
+        breakdown.push({ 
+          label: `Symptom: ${symptom}`, 
+          impact: -2,
+          details: [`Slight deviation detected in recent window.`]
+        });
+      });
 
-    // Mood Trend - Only apply if a trend is detected
-    if (healthStats.moodTrend === 'improving') {
-      score += 5;
-      breakdown.push({ label: 'Positive Mood Trend', impact: 5 });
-    } else if (healthStats.moodTrend === 'declining') {
-      score -= 5;
-      breakdown.push({ label: 'Mood Concerns', impact: -5 });
-    }
-
-    // Sleep - ONLY penalize if they have actually logged sleep and it's low
-    // We check if avgSleepHours > 0 to ensure data was actually provided
-    if (healthStats.avgSleepHours > 0) {
-      if (healthStats.avgSleepHours > 7.5) {
+      // Partial Stability: If only one symptom is logged, don't remove the entire bonus
+      if (uniqueSymptoms.length === 1) {
         score += 5;
-        breakdown.push({ label: 'Quality Rest', impact: 5 });
-      } else if (healthStats.avgSleepHours < 6) {
-        score -= 5;
-        breakdown.push({ label: 'Sleep Deprivation', impact: -5 });
+        breakdown.push({ label: 'Partial Stability', impact: 5, details: ['Tracking remains consistent with minor deviations.'] });
+      }
+    } else {
+      score += 10;
+      breakdown.push({ label: 'Clinical Stability', impact: 10, details: ['No acute symptoms tracked this period.'] });
+    }
+
+    // 2. Tracking Consistency
+    if (healthStats.thisWeekEntries > 7) {
+      score += 5;
+      breakdown.push({ label: 'Excellent Tracking', impact: 5 });
+    } else if (healthStats.thisWeekEntries > 3) {
+      score += 2;
+      breakdown.push({ label: 'Active Participation', impact: 2 });
+    }
+
+    // 3. Health Summaries & Clinical Insights (Individual Details)
+    if (summaries.length > 0) {
+      const latest = summaries[0];
+      const insightText = latest.insights.join(' ').toLowerCase();
+      const summaryText = latest.summary.toLowerCase();
+      
+      const matchedConcerns = latest.insights.filter(i => 
+        i.toLowerCase().includes('severe') || 
+        i.toLowerCase().includes('concern') || 
+        i.toLowerCase().includes('worsening') ||
+        i.toLowerCase().includes('caution')
+      );
+
+      if (matchedConcerns.length > 0) {
+        matchedConcerns.forEach(concern => {
+          score -= 10;
+          breakdown.push({
+            label: 'Clinical Focus',
+            impact: -10,
+            details: [concern]
+          });
+        });
+      }
+
+      const matchedPositives = latest.insights.filter(i => 
+        i.toLowerCase().includes('improving') || 
+        i.toLowerCase().includes('stable') || 
+        i.toLowerCase().includes('positive') ||
+        i.toLowerCase().includes('normal')
+      );
+
+      if (matchedPositives.length > 0) {
+        matchedPositives.forEach(pos => {
+          score += 5;
+          breakdown.push({
+            label: 'Recovery Trend',
+            impact: 5,
+            details: [pos]
+          });
+        });
+      }
+
+      if (matchedConcerns.length === 0 && matchedPositives.length === 0) {
+        breakdown.push({ 
+          label: 'Health Summary Analysis', 
+          impact: 0, 
+          details: [latest.title || 'Latest Check-up Summary', 'Clinical state evaluated as neutral/baseline.'] 
+        });
       }
     }
 
-    // Medication Safety
+    // 4. Mood Trend
+    if (healthStats.moodTrend === 'improving') {
+      score += 5;
+      breakdown.push({ label: 'Mental Wellness', impact: 5 });
+    } else if (healthStats.moodTrend === 'declining') {
+      score -= 5;
+      breakdown.push({ label: 'Mood Variance', impact: -5 });
+    }
+
+    // 5. Sleep Quality
+    if (healthStats.avgSleepHours > 0) {
+      if (healthStats.avgSleepHours > 7 && healthStats.avgSleepQuality === 'excellent') {
+        score += 5;
+        breakdown.push({ label: 'Optimal Recovery', impact: 5 });
+      } else if (healthStats.avgSleepHours < 6 || healthStats.avgSleepQuality === 'poor') {
+        score -= 5;
+        breakdown.push({ label: 'Sleep Deficiency', impact: -5 });
+      }
+    }
+
+    // 6. Medication Safety & Adherence
     const interactions = medications.filter(m => m.active && m.drug_interactions_cache);
     if (interactions.length > 0) {
       score -= 20;
-      breakdown.push({ label: 'Medication Interactions', impact: -20 });
+      breakdown.push({ 
+        label: 'Safety Risk (Meds)', 
+        impact: -20,
+        details: interactions.map(m => `Interaction detected: ${m.name}`)
+      });
     } else if (medications.length > 0) {
       score += 5;
-      breakdown.push({ label: 'Medication Adherence', impact: 5 });
+      breakdown.push({ label: 'Med Adherence', impact: 5, details: ['Active medication protocol followed.'] });
     }
 
     const finalScore = Math.min(Math.max(score, 0), 100);
     let status: 'optimal' | 'stable' | 'needs_attention' = 'stable';
-    if (finalScore > 90) status = 'optimal';
-    if (finalScore < 70) status = 'needs_attention';
+    if (finalScore > 85) status = 'optimal';
+    if (finalScore < 65) status = 'needs_attention';
 
     return { score: finalScore, status, breakdown };
   };

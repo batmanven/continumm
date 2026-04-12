@@ -1,4 +1,4 @@
-import { Activity, Plus, FileUp, Brain, DollarSign, TrendingUp, TrendingDown, Minus, FileText, Heart, Shield, Zap, Info, ArrowRight } from "lucide-react";
+import { Activity, Plus, FileUp, Brain, DollarSign, TrendingUp, TrendingDown, Minus, FileText, Heart, Shield, Zap, Info, ArrowRight, X, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,12 +6,20 @@ import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { BodyHeatmap } from "@/components/ui/BodyHeatmap";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const Dashboard = () => {
   const { user } = useSupabaseAuth();
   const { activeProfile } = useProfile();
   const userName = activeProfile.name || user?.user_metadata?.name || user?.email || "User";
   const { data, loading, error } = useDashboardData();
+  const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
 
   if (loading) {
     return (
@@ -113,7 +121,11 @@ const Dashboard = () => {
              <div className="absolute inset-x-0 inset-y-0 -m-8 border border-primary/5 rounded-full animate-pulse will-change-[opacity,transform]" />
              <div className="absolute inset-x-0 inset-y-0 -m-16 border border-primary/2 rounded-full hidden md:block" />
              
-             <div id="tour-dashboard-score" className="relative h-56 w-56 md:h-72 md:w-72 flex items-center justify-center rounded-full glass-premium nexus-glow border-white/10 shadow-3xl">
+             <div 
+                id="tour-dashboard-score" 
+                onClick={() => setShowScoreBreakdown(true)}
+                className="relative h-56 w-56 md:h-72 md:w-72 flex items-center justify-center rounded-full glass-premium nexus-glow border-white/10 shadow-3xl cursor-pointer hover:scale-105 active:scale-95 transition-all group/core"
+             >
                 <div className="absolute inset-4 rounded-full border border-primary/10" />
                 <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 200 200">
                      <circle
@@ -238,23 +250,95 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Quick Links */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-6 animate-slide-up" style={{ animationDelay: '1000ms' }}>
+        {/* Quick Links - Centered Layout */}
+        <div className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6 py-12 animate-slide-up" style={{ animationDelay: '1000ms' }}>
            {[
              { label: 'Medications', icon: Zap, color: 'text-primary', link: '/app/medications' },
              { label: 'Care Circle', icon: Shield, color: 'text-accent', link: '/app/guardians' },
-             { label: 'Passport', icon: FileText, color: 'text-purple-400', link: '/app/passport' },
              { label: 'Insights', icon: Brain, color: 'text-blue-400', link: '/app/doctor-summaries' }
            ].map((item, i) => (
-             <Link key={i} to={item.link} className="flex flex-col items-center gap-3 p-6 glass-premium rounded-[2rem] hover:bg-white/[0.05] transition-all group">
-                <div className={`h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center ${item.color} group-hover:scale-110 transition-transform`}>
-                  <item.icon className="h-5 w-5" />
+             <Link key={i} to={item.link} className="flex flex-col items-center gap-4 p-8 glass-premium rounded-[2.5rem] hover:bg-white/[0.05] transition-all group border-white/5 active:scale-95">
+                <div className={`h-14 w-14 rounded-2xl bg-white/5 flex items-center justify-center ${item.color} group-hover:scale-110 transition-transform shadow-inner`}>
+                   <item.icon className="h-6 w-6" />
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em]">{item.label}</span>
              </Link>
            ))}
         </div>
       </div>
+      <Dialog open={showScoreBreakdown} onOpenChange={setShowScoreBreakdown}>
+        <DialogContent className="max-w-md p-0 overflow-hidden border border-border bg-card text-card-foreground rounded-[2rem] shadow-2xl">
+          <div className="p-8 space-y-8">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-display font-bold">Continuum Analysis</h2>
+                <p className="text-[10px] font-bold text-primary tracking-[0.3em] uppercase opacity-60">Scoring Engine v2.0</p>
+              </div>
+              <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                <Zap className="h-6 w-6 fill-primary" />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+               {/* Baseline */}
+               <div className="flex items-center justify-between p-4 rounded-2xl bg-secondary/50 border border-border">
+                 <div className="flex items-center gap-3">
+                    <div className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+                    <span className="text-sm font-semibold">Base Allocation</span>
+                 </div>
+                 <span className="font-mono font-bold text-muted-foreground">80 pts</span>
+               </div>
+
+               {/* Factors */}
+               {data.continuumScore.breakdown.map((item, i) => (
+                 <div key={i} className="flex flex-col gap-2 p-4 rounded-2xl bg-secondary/30 border border-border group hover:bg-secondary/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-3">
+                          <div className={`h-2 w-2 rounded-full ${item.impact >= 0 ? 'bg-primary' : 'bg-destructive'}`} />
+                          <span className="text-sm font-semibold">{item.label}</span>
+                       </div>
+                       <span className={`font-mono font-bold ${item.impact >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                          {item.impact >= 0 ? '+' : ''}{item.impact} pts
+                       </span>
+                    </div>
+                    {item.details && item.details.length > 0 && (
+                      <div className="ml-5 space-y-1">
+                        {item.details.map((detail, di) => (
+                          <div key={di} className="text-[10px] text-muted-foreground leading-relaxed font-semibold bg-primary/5 py-1 px-2 rounded-lg border border-primary/10">
+                            ↳ {detail}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                 </div>
+               ))}
+
+               {/* Resulting Score */}
+               <div className="mt-8 pt-6 border-t border-border flex items-center justify-between">
+                  <div>
+                    <span className="text-2xl font-display font-bold text-foreground">{data.continuumScore.score}</span>
+                    <span className="text-[10px] font-bold text-muted-foreground ml-2 uppercase tracking-widest">Final Index</span>
+                  </div>
+                  <Badge className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest ${
+                    data.continuumScore.status === 'optimal' ? 'bg-primary text-primary-foreground' :
+                    data.continuumScore.status === 'stable' ? 'bg-secondary text-secondary-foreground' :
+                    'bg-destructive text-destructive-foreground'
+                  }`}>
+                    {data.continuumScore.status.replace('_', ' ')}
+                  </Badge>
+               </div>
+            </div>
+
+            <p className="text-[9px] text-muted-foreground leading-relaxed text-center px-4">
+              Our algorithm synthesizes clinical tracking consistency, AI summary sentiment, symptom intensity patterns, and medication safety to arrive at your Continuum Index.
+            </p>
+
+            <Button onClick={() => setShowScoreBreakdown(false)} className="w-full h-12 rounded-2xl bg-foreground text-background hover:bg-foreground/80 font-bold transition-all shadow-lg">
+              Close Analysis
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
